@@ -144,6 +144,7 @@ sub web_index {
 <li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
 <li><strong>brmvideo</strong> ($str) live feed coming soon!</li>
 </ul>
+<p align="right"><a href="http://gitorious.org/brmlab/brmdoor">(view source)</a></p>
 </body></html>
 EOT
 	);
