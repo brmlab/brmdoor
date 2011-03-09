@@ -141,7 +141,7 @@ sub web_index {
 <h1>brmd web interface</h1>
 <p>Enjoy the view!</p>
 <ul>
-<li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.png">picture</a></li>
+<li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
 <li><strong>brmvideo</strong> ($str) live feed coming soon!</li>
 </ul>
 </body></html>
