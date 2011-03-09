@@ -1,5 +1,7 @@
 // get file cardids.h from the Council section in our wiki!
 
+#define MUSIC 1
+
 // if you are running Arduino0018 or older, comment the SPI.h include
 #include <SPI.h>
 #include <Ethernet.h>
@@ -28,7 +30,8 @@ struct ACLdata {
 // run telnet server
 Server server(23);
 
-#if 1
+#if MUSIC
+
 #include "pitches.h"
 
 int melody_nak[] = { NOTE_G5, NOTE_G5, NOTE_G5, NOTE_DS5, NOTE_AS5, NOTE_G5, NOTE_DS5, NOTE_AS5, NOTE_G5};
@@ -70,6 +73,7 @@ void playMelodyNak()
 { playMelody(melody_nak, noteDurations_nak, sizeof(melody_nak)/sizeof(melody_nak[0])); }
 
 #else
+
 void playMelodyAck()
 {}
 void playMelodyNak()
