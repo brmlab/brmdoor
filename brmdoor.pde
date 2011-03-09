@@ -5,7 +5,7 @@
 #include <Ethernet.h>
 
 // pins
-const int DoorLock = 5;
+const int doorLock = 5;
 const int soundPin = 9;
 const int statusLed = 8;
 const int statusBtn = 7;
@@ -80,10 +80,10 @@ void playMelodyNak()
 // opens door for "ms" milliseconds
 void openDoorForTime(int ms)
 {
-  digitalWrite(DoorLock, HIGH);
+  digitalWrite(doorLock, HIGH);
   playMelodyAck();
   delay(ms);
-  digitalWrite(DoorLock, LOW);
+  digitalWrite(doorLock, LOW);
 }
 
 void readCard()
@@ -152,7 +152,7 @@ void setup()
   byte gateway[] = { 192, 168, 1, 1 };
   byte subnet[] = { 255, 255, 255, 0 };
 
-  pinMode(DoorLock, OUTPUT);
+  pinMode(doorLock, OUTPUT);
   pinMode(soundPin, OUTPUT);
   pinMode(statusLed, OUTPUT);
   pinMode(videoLed, OUTPUT);
