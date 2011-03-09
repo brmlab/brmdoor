@@ -1,0 +1,33 @@
+* Support for brmwiki update notifications.
+	Watch the RSS feed.
+
+* Potentially some prettier icons and richer javascript stubs.
+
+
+* Have the brmlab sketch do bi-directional TCP communication.
+	Currently, it only sends stuff and cannot receive any
+	instructions. This is pre-req for features below.
+	Alternatively, we may decide we need to switch back to
+	USB communication (with reliable USB host) if the ethernet
+	shield proves to be too unreliable.
+
+* Way to override status from web page.
+	To keep status LED and web page in sync, bi-directional
+	communication will be required.
+
+* Way to unlock door remotely (through some secure channel).
+	Bi-directional communication will be required.
+
+
+* Webcam support.
+	We will need to figure out where to connect it.
+
+* Picture snapshot support.
+	Add a button to the panel that will make the webcam
+	take a snapshot - useful for letting the world know
+	who came in, or to publish random stuff. Post to twitpic
+	or some-such.
+
+* Live-feed support.
+	Turn webcam on/off based on the second switch. Route the
+	stream to some public place.
