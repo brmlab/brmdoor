@@ -26,6 +26,7 @@ my $web = POE::Component::Server::HTTP->new(
 		"/brmstatus.html" => \&web_brmstatus_html,
 		"/brmstatus.js" => \&web_brmstatus_js,
 		"/brmstatus.png" => \&web_brmstatus_png,
+		"/brmstatus.txt" => \&web_brmstatus_txt,
 		"/" => \&web_index
 	},
 	Headers => {Server => 'brmd/xxx'},
@@ -183,6 +184,20 @@ sub web_brmstatus_js {
 function brmstatus() { return ($status); }
 EOT
 	);
+
+	return RC_OK;
+}
+
+sub web_brmstatus_txt {
+	my ($request, $response) = @_;
+
+	my $st = status_str();
+
+	$response->code(RC_OK);
+	$response->push_header("Content-Type", "text/plain");
+	disable_caching($response);
+
+	$response->content($st);
 
 	return RC_OK;
 }
