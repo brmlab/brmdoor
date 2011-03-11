@@ -58,7 +58,7 @@ sub _start {
 
 sub _default {
 	my ($event, $args) = @_[ARG0 .. $#_];
-	my @output = ( "$event: " );
+	my @output = ( (scalar localtime), "$event: " );
 
 	for my $arg (@$args) {
 		if ( ref $arg eq 'ARRAY' ) {
@@ -84,6 +84,7 @@ sub record_str {
 
 sub brmdoor_input {
 	my $input = $_[ARG0];
+	print ((scalar localtime)." $input\n");
 	$input =~ /^(\d) (\d) (.*)$/ or return;
 	my ($cur_status, $cur_record, $brm) = ($1, $2, $3);
 	if ($cur_status != $status) {
