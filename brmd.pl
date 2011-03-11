@@ -79,6 +79,19 @@ sub record_str {
 	$record ? 'ON AIR' : 'OFF AIR';
 }
 
+sub topic_update {
+	my $newtopic = $topic;
+	if ($status) {
+		$newtopic =~ s/BRMLAB CLOSED/BRMLAB OPEN/g;
+	} else {
+		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
+	}
+	if ($newtopic ne $topic) {
+		$topic = $newtopic;
+		$irc->yield (topic => $channel => $topic );
+	}
+}
+
 
 ## Brmdoor
 
@@ -91,16 +104,7 @@ sub brmdoor_input {
 		$status = $cur_status;
 		my $st = status_str();
 		$irc->yield (privmsg => $channel => "[brmstatus] update: \002$st" );
-		my $newtopic = $topic;
-		if ($status) {
-			$newtopic =~ s/BRMLAB CLOSED/BRMLAB OPEN/g;
-		} else {
-			$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
-		}
-		if ($newtopic ne $topic) {
-			$topic = $newtopic;
-			$irc->yield (topic => $channel => $topic );
-		}
+		topic_update();
 	}
 	if ($cur_record != $record) {
 		$record = $cur_record;
@@ -253,12 +257,14 @@ sub irc_public {
 sub irc_332 {
 	my ($sender, $server, $str, $data) = @_[SENDER, ARG0 .. ARG2];
 	$topic = $data->[1];
-	print "new topic: $topic\n"
+	print "new topic: $topic\n";
+	topic_update();
 }
 
 sub irc_topic {
 	my ($sender, $who, $where, $what) = @_[SENDER, ARG0 .. ARG2];
 	my $channel = $where;
 	$topic = $what;
-	print "new topic: $topic\n"
+	print "new topic: $topic\n";
+	topic_update();
 }
