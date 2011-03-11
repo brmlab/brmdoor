@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use POE qw(Component::IRC Component::Client::TCP Component::Server::HTTP);
+use POE qw(Component::IRC Component::IRC::Plugin::Connector Component::Client::TCP Component::Server::HTTP);
 use HTTP::Status qw/RC_OK/;
 
 our $channel = "#brmlab";
@@ -51,6 +51,8 @@ sub _start {
 	my $irc = $heap->{irc};
 
 	$irc->yield( register => 'all' );
+	$heap->{connector} = POE::Component::IRC::Plugin::Connector->new();
+	$irc->plugin_add( 'Connector' => $heap->{connector} );
 	$irc->yield( connect => { } );
 }
 
