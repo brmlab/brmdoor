@@ -4,13 +4,6 @@
 * Potentially some prettier icons and richer javascript stubs.
 
 
-* Have the brmlab sketch do bi-directional TCP communication.
-	Currently, it only sends stuff and cannot receive any
-	instructions. This is pre-req for features below.
-	Alternatively, we may decide we need to switch back to
-	USB communication (with reliable USB host) if the ethernet
-	shield proves to be too unreliable.
-
 * Way to override status from web page.
 	To keep status LED and web page in sync, bi-directional
 	communication will be required.

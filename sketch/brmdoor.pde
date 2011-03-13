@@ -2,17 +2,17 @@
 
 #define MUSIC 1
 
-// if you are running Arduino0018 or older, comment the SPI.h include
-#include <SPI.h>
-#include <Ethernet.h>
+#include <NewSoftSerial.h>
 
 // pins
-const int doorLock = 5;
-const int soundPin = 9;
+const int soundPin = 9; /* piezo in series with 100R */
 const int statusLed = 8;
 const int statusBtn = 7;
 const int videoLed = 6;
-const int videoBtn = 3;
+const int videoBtn = 5;
+const int doorLock = 4;
+const int rfidRx = 3;
+const int rfidTx = 2;
 
 int statusState = 0;
 int videoState = 0;
@@ -27,8 +27,11 @@ struct ACLdata {
 #include "cardids.h"
 };
 
-// run telnet server
-Server server(23);
+// comSerial for communication with the host
+#define comSerial Serial
+
+// rfidSerial for communication with the RFID reader
+NewSoftSerial rfidSerial(rfidTx, rfidRx);
 
 #if MUSIC
 
@@ -52,7 +55,7 @@ void toneManual(int pin, int frequency, int duration)
      * It seems about right, but has not been tuned precisely for
      * a 16MHz ATMega. */
     delayMicroseconds(period - 50);
-    //server.print(pin, DEC); server.print(state, DEC); server.write(" "); server.print(period); server.write(" "); server.print(length); server.write("\n");
+    //comSerial.print(pin, DEC); comSerial.print(state, DEC); comSerial.write(" "); comSerial.print(period); comSerial.write(" "); comSerial.print(length); comSerial.write("\n");
   }
 }
 
@@ -60,7 +63,7 @@ void playMelody(int *melody, int *noteDurations, int notes)
 {
   int i;
   for (i = 0; i < notes; i++) {
-    // server.print(melody[i]); server.write(" "); server.print(noteDurations[i]); server.write("\n");
+    // comSerial.print(melody[i]); comSerial.write(" "); comSerial.print(noteDurations[i]); comSerial.write("\n");
     toneManual(soundPin, melody[i], noteDurations[i]);
 
     delay(noteDurations[i] * 6/10);
@@ -95,26 +98,28 @@ void readCard()
   byte RequestCardStatus[] = { 0xAA, 0x00, 0x03, 0x25, 0x26, 0x00, 0x00, 0xBB };
   byte NoCardResponse[] = { 0xAA, 0x00, 0x02, 0x01, 0x83, 0x80, 0xBB };
   byte buf[16];
+  int i;
 
   // write query to serial
-  Serial.write(RequestCardStatus, 8);
+  for (i = 0; i < 8; i++)
+    rfidSerial.print(RequestCardStatus[i]);
   // wait for the result, while reblinking
   delay(100);
   digitalWrite(statusLed, statusState);
   delay(150);
 
   // read input from serial into the buffer
-  int i = 0;
-  while (Serial.available() > 0) {
+  i = 0;
+  while (rfidSerial.available() > 0) {
     if (i < sizeof(buf)) {
-      buf[i] = Serial.read();
+      buf[i] = rfidSerial.read();
     }
     ++i;
   }
 
   // no card is detected
   if (!memcmp(buf, NoCardResponse, 7)) {
-    server.write("NOCARD\n");
+    comSerial.write("NOCARD\n");
   }
 
   // card detected - message has form AA0006xxxxxxxxxxxxxxBB where xxx... is the card ID
@@ -125,9 +130,9 @@ void readCard()
       // if there is a match - print known card ...
       if (!memcmp(ACL[i].cardId, buf+3, 7)) {
         known = true;
-        server.write("CARD ");
-        server.write(ACL[i].nick);
-        server.write("\n");
+        comSerial.write("CARD ");
+        comSerial.write(ACL[i].nick);
+        comSerial.write("\n");
         // ... and open door for 5s
         openDoorForTime(5000);
         break;
@@ -135,12 +140,12 @@ void readCard()
     }
     // card was not found in the ACL
     if (!known) {
-      server.write("CARD UNKNOWN ");
+      comSerial.write("CARD UNKNOWN ");
       for (int i = 0; i < 7; ++i) {
-        if (buf[i+3] < 0xF) server.write("0");
-        server.print(buf[i+3], HEX);
+        if (buf[i+3] < 0xF) comSerial.write("0");
+        comSerial.print(buf[i+3], HEX);
       }
-      server.write("\n");
+      comSerial.write("\n");
       playMelodyNak();
     }
   }
@@ -150,12 +155,6 @@ void readCard()
 
 void setup()
 {
-  // constants for ethernet shield
-  byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-  byte ip[] = { 192, 168, 1, 3 };
-  byte gateway[] = { 192, 168, 1, 1 };
-  byte subnet[] = { 255, 255, 255, 0 };
-
   pinMode(doorLock, OUTPUT);
   pinMode(soundPin, OUTPUT);
   pinMode(statusLed, OUTPUT);
@@ -164,9 +163,8 @@ void setup()
   digitalWrite(statusBtn, HIGH);
   pinMode(videoBtn, INPUT);
   digitalWrite(videoBtn, HIGH);
-  Serial.begin(9600);
-  Ethernet.begin(mac, ip, gateway, subnet);
-  server.begin();
+  rfidSerial.begin(9600);
+  comSerial.begin(9600);
 }
 
 void loop()
@@ -175,7 +173,7 @@ void loop()
   videoState = !digitalRead(videoBtn);
   digitalWrite(statusLed, !statusState); // will be turned back in readCard()
   digitalWrite(videoLed, videoState);
-  server.print(statusState, DEC); server.write(" ");
-  server.print(videoState, DEC); server.write(" ");
+  comSerial.print(statusState, DEC); comSerial.write(" ");
+  comSerial.print(videoState, DEC); comSerial.write(" ");
   readCard();
 }
