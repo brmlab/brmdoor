@@ -2,10 +2,14 @@
 
 use strict;
 use warnings;
-use POE qw(Component::IRC Component::IRC::Plugin::Connector Component::Client::TCP Component::Server::HTTP);
+use POE qw(Component::IRC Component::IRC::Plugin::Connector Component::Server::HTTP
+		Wheel::ReadWrite Filter::Line);
+use Symbol qw(gensym);
+use Device::SerialPort;
 use HTTP::Status qw/RC_OK/;
 
 our $channel = "#brmlab";
+our $device = "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $irc = POE::Component::IRC->spawn(
@@ -13,12 +17,6 @@ my $irc = POE::Component::IRC->spawn(
 	ircname => 'The Brmlab Automaton',
 	server => 'irc.freenode.org',
 ) or die "Oh noooo! $!";
-
-my $door = POE::Component::Client::TCP->new(
-	RemoteAddress => "192.168.1.3",
-	RemotePort    => 23,
-	ServerInput   => \&brmdoor_input,
-) or die "Oh naaaay! $!";
 
 my $web = POE::Component::Server::HTTP->new(
 	Port           => 8088,
@@ -33,11 +31,14 @@ my $web = POE::Component::Server::HTTP->new(
 ) or die "Oh neee! $!";
 
 
-
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start irc_001 irc_public irc_332 irc_topic) ],
 	],
+	inline_states => {
+		serial_input => \&serial_input,
+		serial_error => \&serial_error,
+	},
 	heap => { irc => $irc },
 );
 
@@ -46,6 +47,16 @@ $poe_kernel->run();
 
 sub _start {
 	my $heap = $_[HEAP];
+
+	$heap->{serial} = POE::Wheel::ReadWrite->new(
+		Handle => serial_open($device),
+		Filter => POE::Filter::Line->new(
+			InputLiteral  => "\x0A",    # Received line endings.
+			OutputLiteral => "\x0A",    # Sent line endings.
+			),
+		InputEvent => "serial_input",
+		ErrorEvent => "serial_error",
+	) or die "Oh ooops! $!";
 
 	# retrieve our component's object from the heap where we stashed it
 	my $irc = $heap->{irc};
@@ -93,10 +104,26 @@ sub topic_update {
 }
 
 
-## Brmdoor
+## Brmdoor serial
 
-sub brmdoor_input {
-	my $input = $_[ARG0];
+sub serial_open {
+	my ($device) = @_;
+	# Open a serial port, and tie it to a file handle for POE.
+	my $handle = gensym();
+	my $port = tie(*$handle, "Device::SerialPort", $device);
+	die "can't open port: $!" unless $port;
+	$port->datatype('raw');
+	$port->baudrate(9600);
+	$port->databits(8);
+	$port->parity("none");
+	$port->stopbits(1);
+	$port->handshake("none");
+	$port->write_settings();
+	return $handle;
+}
+
+sub serial_input {
+	my ($input) = ($_[ARG0]);
 	print ((scalar localtime)." $input\n");
 	$input =~ /^(\d) (\d) (.*)$/ or return;
 	my ($cur_status, $cur_record, $brm) = ($1, $2, $3);
@@ -119,6 +146,12 @@ sub brmdoor_input {
 			$irc->yield (privmsg => $channel => "[brmdoor] unlocked by: \002$brm" );
 		}
 	}
+}
+
+sub serial_error {
+	my ($heap) = ($_[HEAP]);
+	print "$_[ARG0] error $_[ARG1]: $_[ARG2]\n";
+	print "bye!\n";
 }
 
 
