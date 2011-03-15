@@ -2,7 +2,7 @@
 
 #define MUSIC 1
 
-#include <NewSoftSerial.h>
+#include "NewSoftSerial.h"
 
 // pins
 const int soundPin = 9; /* piezo in series with 100R */
