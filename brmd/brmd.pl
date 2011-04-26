@@ -169,6 +169,7 @@ sub web_index {
 	my $sts = status_str();
 	my $str = record_str();
 
+	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
@@ -198,6 +199,7 @@ sub web_brmstatus_html {
 	my $bg = $status ? 'lightgreen' : '#DEE7EC';
 	my $st = $status ? 'OPEN' : 'CLOSED';
 
+	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
@@ -217,6 +219,7 @@ EOT
 sub web_brmstatus_js {
 	my ($request, $response) = @_;
 
+	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/javascript");
 	disable_caching($response);
@@ -234,6 +237,7 @@ sub web_brmstatus_txt {
 
 	my $st = status_str();
 
+	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/plain");
 	disable_caching($response);
@@ -251,6 +255,7 @@ sub web_brmstatus_png {
 	my $imgdata = <$img>;
 	close $img;
 
+	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "image/png");
 	disable_caching($response);
