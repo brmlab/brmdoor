@@ -103,6 +103,21 @@ sub topic_update {
 	}
 }
 
+sub status_update {
+	my ($newstatus) = @_;
+	$status = $newstatus;
+	my $st = status_str();
+	$irc->yield (privmsg => $channel => "[brmstatus] update: \002$st" );
+	topic_update();
+}
+
+sub record_update {
+	my ($newrecord) = @_;
+	$record = $newrecord;
+	my $st = record_str();
+	$irc->yield (privmsg => $channel => "[brmvideo] update (TODO): \002$st" );
+}
+
 
 ## Brmdoor serial
 
@@ -128,15 +143,10 @@ sub serial_input {
 	$input =~ /^(\d) (\d) (.*)$/ or return;
 	my ($cur_status, $cur_record, $brm) = ($1, $2, $3);
 	if ($cur_status != $status) {
-		$status = $cur_status;
-		my $st = status_str();
-		$irc->yield (privmsg => $channel => "[brmstatus] update: \002$st" );
-		topic_update();
+		status_update($cur_status);
 	}
 	if ($cur_record != $record) {
-		$record = $cur_record;
-		my $st = record_str();
-		$irc->yield (privmsg => $channel => "[brmvideo] update (TODO): \002$st" );
+		record_update($cur_record);
 	}
 	if ($brm =~ s/^CARD //) {
 		print "from brmdoor: $input\n";
