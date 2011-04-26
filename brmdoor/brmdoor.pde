@@ -14,8 +14,8 @@ const int doorLock = 4;
 const int rfidRx = 3;
 const int rfidTx = 2;
 
-int statusState = 0;
-int videoState = 0;
+int statusState = 0, statusStateOverride = 0;
+int videoState = 0, videoStateOverride = 0;
 
 // cardId is the same as you can see in CARD telnet message
 struct ACLdata {
@@ -153,6 +153,18 @@ void readCard()
   delay(750);
 }
 
+void readSerial()
+{
+  if (comSerial.available()) {
+    unsigned char cmd = comSerial.read();
+    unsigned char data = comSerial.read();
+    switch (cmd) {
+      case 's': statusState = data; statusStateOverride = 1; break;
+      case 'v': videoState = data; videoStateOverride = 1; break;
+    }
+  }
+}
+
 void setup()
 {
   pinMode(doorLock, OUTPUT);
@@ -169,11 +181,20 @@ void setup()
 
 void loop()
 {
-  statusState = !digitalRead(statusBtn);
-  videoState = !digitalRead(videoBtn);
+  /* Check buttons. */
+  int statusStateNew = !digitalRead(statusBtn);
+  int videoStateNew = !digitalRead(videoBtn);
+  /* Cancel override if button is in same state as official state. */
+  if (statusState == statusStateNew) statusStateOverride = 0;
+  if (videoState == videoStateNew) videoStateOverride = 0;
+  /* Update state based on buttons and override. */
+  if (!statusStateOverride) statusState = statusStateNew;
+  if (!videoStateOverride) videoState = videoStateNew;
+
   digitalWrite(statusLed, !statusState); // will be turned back in readCard()
   digitalWrite(videoLed, videoState);
   comSerial.print(statusState, DEC); comSerial.write(" ");
   comSerial.print(videoState, DEC); comSerial.write(" ");
   readCard();
+  readSerial();
 }
