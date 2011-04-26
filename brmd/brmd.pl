@@ -7,10 +7,13 @@ use POE qw(Component::IRC Component::IRC::Plugin::Connector Component::Server::H
 use Symbol qw(gensym);
 use Device::SerialPort;
 use HTTP::Status qw/RC_OK/;
+use CGI;
 
 our $channel = "#brmlab";
 our $device = "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
+
+my $serial;
 
 my $irc = POE::Component::IRC->spawn(
 	nick => 'brmbot',
@@ -25,6 +28,7 @@ my $web = POE::Component::Server::HTTP->new(
 		"/brmstatus.js" => \&web_brmstatus_js,
 		"/brmstatus.png" => \&web_brmstatus_png,
 		"/brmstatus.txt" => \&web_brmstatus_txt,
+		"/brmstatus-switch" => \&web_brmstatus_switch,
 		"/" => \&web_index
 	},
 	Headers => {Server => 'brmd/xxx'},
@@ -48,7 +52,7 @@ $poe_kernel->run();
 sub _start {
 	my $heap = $_[HEAP];
 
-	$heap->{serial} = POE::Wheel::ReadWrite->new(
+	$serial = $heap->{serial} = POE::Wheel::ReadWrite->new(
 		Handle => serial_open($device),
 		Filter => POE::Filter::Line->new(
 			InputLiteral  => "\x0A",    # Received line endings.
@@ -219,6 +223,17 @@ sub web_brmstatus_html {
 <head><title>brmstatus</title></head>
 <body bgcolor="$bg">
 <h1 align="center">brmlab is $st</h1>
+<table style="border: 1pt solid" align="center"><tr><td>
+<h2 align="center">Manual Override</h2>
+<p>Manual override persists until the next time the physical button is switched.</p>
+<p>
+<form method="post" action="brmstatus-switch">
+<strong>Perpetrator:</strong>
+<input type="text" name="nick" />
+<input type="button" name="s" value="Switch status" />
+</form>
+</p>
+</td></tr></table>
 </body></html>
 EOT
 	);
@@ -271,6 +286,27 @@ sub web_brmstatus_png {
 	disable_caching($response);
 
 	$response->content($imgdata);
+
+	return RC_OK;
+}
+
+sub web_brmstatus_switch {
+	my ($request, $response) = @_;
+
+	my $q = new CGI($request->content);
+	my $nick = $q->param('nick');
+
+	my $newstatus = not $status;
+
+	$serial->put('s'.$newstatus);
+	$serial->flush();
+
+	$irc->yield (privmsg => $channel => "[brmstatus] Manual override by $nick (web)" );
+	status_update($newstatus);
+
+	$response->protocol("HTTP/1.1");
+	$response->code(302);
+	$response->header('Location' => 'brmstatus.html');
 
 	return RC_OK;
 }
