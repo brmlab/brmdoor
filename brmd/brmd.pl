@@ -225,7 +225,6 @@ sub web_brmstatus_html {
 <h1 align="center">brmlab is $st</h1>
 <table style="border: 1pt solid" align="center"><tr><td>
 <h2 align="center">Manual Override</h2>
-<p>Manual override persists until the next time the physical button is switched.</p>
 <p>
 <form method="post" action="brmstatus-switch">
 <strong>Perpetrator:</strong>
