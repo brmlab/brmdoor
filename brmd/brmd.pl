@@ -230,7 +230,7 @@ sub web_brmstatus_html {
 <form method="post" action="brmstatus-switch">
 <strong>Perpetrator:</strong>
 <input type="text" name="nick" />
-<input type="button" name="s" value="Switch status" />
+<input type="submit" name="s" value="Switch status" />
 </form>
 </p>
 </td></tr></table>
