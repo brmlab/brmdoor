@@ -10,7 +10,7 @@ use HTTP::Status qw/RC_OK/;
 use CGI;
 
 our $channel = "#brmlab";
-our $device = "/dev/ttyUSB0";
+our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $serial;
