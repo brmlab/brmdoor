@@ -141,6 +141,7 @@ sub record_update {
 	my $st = record_str();
 	$record and $st .= "\002 $streamurl";
 	$irc->yield (privmsg => $channel => "[brmvideo] update: \002$st" );
+	topic_update();
 }
 
 
