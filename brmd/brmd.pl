@@ -10,6 +10,7 @@ use HTTP::Status qw/RC_OK/;
 use CGI;
 
 our $channel = "#brmlab";
+our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
 our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
 
@@ -110,7 +111,7 @@ sub topic_update {
 		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
 	}
 	if ($record) {
-		$newtopic =~ s#OFF AIR#ON AIR (http://nat.brmlab.cz:8090/brmstream.asf)#g;
+		$newtopic =~ s#OFF AIR#ON AIR ($streamurl)#g;
 	} else {
 		$newtopic =~ s#ON AIR.*? \|#OFF AIR |#g;
 	}
@@ -138,7 +139,7 @@ sub record_update {
 	}
 
 	my $st = record_str();
-	$record and $st .= "\002 http://nat.brmlab.cz:8090/brmstream.asf";
+	$record and $st .= "\002 $streamurl";
 	$irc->yield (privmsg => $channel => "[brmvideo] update: \002$st" );
 }
 
@@ -209,7 +210,7 @@ sub web_index {
 	disable_caching($response);
 
 	my $r_link = '';
-	$record and $r_link .= '<a href="http://nat.brmlab.cz:8090/brmstream.asf">watch now!</a>';
+	$record and $r_link .= '<a href="'.$streamurl.'">watch now!</a>';
 
 	$response->content(<<EOT
 <html>
