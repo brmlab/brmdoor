@@ -203,6 +203,9 @@ sub web_index {
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
 
+	my $r_link = '';
+	$record and $r_link .= '<a href="http://nat.brmlab.cz:8090/brmstream.asf">watch now!</a>';
+
 	$response->content(<<EOT
 <html>
 <head><title>brmd</title></head>
@@ -212,7 +215,7 @@ sub web_index {
 <p>Enjoy the view!</p>
 <ul>
 <li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
-<li><strong>brmvideo</strong> ($str) live feed coming soon!</li>
+<li><strong>brmvideo</strong> ($str) $r_link</li>
 </ul>
 <p align="right"><a href="http://gitorious.org/brmlab/brmdoor">(view source)</a></p>
 </body></html>
