@@ -94,6 +94,14 @@ sub record_str {
 	$record ? 'ON AIR' : 'OFF AIR';
 }
 
+sub stream_switch {
+	my ($s) = @_;
+	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+}
+
+sub record_start { stream_switch(1); }
+sub record_stop { stream_switch(0); }
+
 sub topic_update {
 	my $newtopic = $topic;
 	if ($status) {
@@ -118,6 +126,12 @@ sub status_update {
 sub record_update {
 	my ($newrecord) = @_;
 	$record = $newrecord;
+	if ($record) {
+		record_start();
+	} else {
+		record_stop();
+	}
+
 	my $st = record_str();
 	$record and $st .= "\002 http://nat.brmlab.cz:8090/brmstream.asf";
 	$irc->yield (privmsg => $channel => "[brmvideo] update: \002$st" );
