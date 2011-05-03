@@ -109,6 +109,11 @@ sub topic_update {
 	} else {
 		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
 	}
+	if ($record) {
+		$newtopic =~ s#OFF AIR#ON AIR (http://nat.brmlab.cz:8090/brmstream.asf)#g;
+	} else {
+		$newtopic =~ s#ON AIR.*? \|#OFF AIR |#g;
+	}
 	if ($newtopic ne $topic) {
 		$topic = $newtopic;
 		$irc->yield (topic => $channel => $topic );
