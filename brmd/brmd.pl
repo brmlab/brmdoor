@@ -91,7 +91,7 @@ sub status_str {
 }
 
 sub record_str {
-	$record ? 'ON AIR' : 'OFF AIR';
+	$record ? "ON AIR\002 http://nat.brmlab.cz:8090/brmstream.asf" : 'OFF AIR';
 }
 
 sub topic_update {
@@ -119,7 +119,7 @@ sub record_update {
 	my ($newrecord) = @_;
 	$record = $newrecord;
 	my $st = record_str();
-	$irc->yield (privmsg => $channel => "[brmvideo] update (TODO): \002$st" );
+	$irc->yield (privmsg => $channel => "[brmvideo] update: \002$st" );
 }
 
 
