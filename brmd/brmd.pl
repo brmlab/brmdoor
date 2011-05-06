@@ -13,13 +13,14 @@ our $serial;
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
 my $door = brmd::Door->new();
+my $stream = brmd::Stream->new();
 
 
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start) ],
 	],
-	heap => { irc => $irc, web => $web },
+	heap => { irc => $irc, web => $web, stream => $stream },
 );
 
 $poe_kernel->run();
@@ -51,14 +52,6 @@ sub record_str {
 	$record ? 'ON AIR' : 'OFF AIR';
 }
 
-sub stream_switch {
-	my ($s) = @_;
-	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
-}
-
-sub record_start { stream_switch(1); }
-sub record_stop { stream_switch(0); }
-
 sub status_update {
 	my ($newstatus) = @_;
 	$status = $newstatus;
@@ -70,9 +63,9 @@ sub record_update {
 	my ($newrecord) = @_;
 	$record = $newrecord;
 	if ($record) {
-		record_start();
+		$poe_kernel->post( $stream, 'stream_start' );
 	} else {
-		record_stop();
+		$poe_kernel->post( $stream, 'stream_stop' );
 	}
 
 	my $st = record_str();
@@ -513,6 +506,61 @@ sub notify_door_unlocked {
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] unlocked by: \002$nick";
 	$irc->yield (privmsg => $channel => $msg );
+}
+
+1;
+
+
+## Live Stream
+
+package brmd::Stream;
+
+use POE;
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default
+					stream_start stream_stop) ],
+		],
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "Stream $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
+
+sub stream_switch {
+	my ($s) = @_;
+	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+}
+
+sub stream_start {
+	stream_switch(1);
+}
+
+sub stream_stop {
+	stream_switch(0);
 }
 
 1;
