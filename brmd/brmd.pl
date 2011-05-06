@@ -63,8 +63,7 @@ sub status_update {
 	my ($newstatus) = @_;
 	$status = $newstatus;
 	my $st = status_str();
-	$poe_kernel->post( $irc, notify => "[brmstatus] update: \002$st" );
-	$poe_kernel->post( $irc, 'topic_update' );
+	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st );
 }
 
 sub record_update {
@@ -78,8 +77,7 @@ sub record_update {
 
 	my $st = record_str();
 	$record and $st .= "\002 $streamurl";
-	$poe_kernel->post( $irc, notify => "[brmvideo] update: \002$st" );
-	$poe_kernel->post( $irc, 'topic_update' );
+	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $record ? $streamurl : undef );
 }
 
 
@@ -164,9 +162,9 @@ sub serial_input {
 	if ($brm =~ s/^CARD //) {
 		print "from door: $input\n";
 		if ($brm =~ /^UNKNOWN/) {
-			$poe_kernel->post( $irc, 'notify' => "[door] unauthorized access denied!" );
+			$poe_kernel->post( $irc, 'notify_door_unauth' );
 		} else {
-			$poe_kernel->post( $irc, 'notify' => "[door] unlocked by: \002$brm" );
+			$poe_kernel->post( $irc, 'notify_door_unlocked', $brm );
 		}
 	}
 }
@@ -364,7 +362,7 @@ sub web_brmstatus_switch {
 	$serial->put('s'.$newstatus);
 	$serial->flush();
 
-	$poe_kernel->post($irc, 'notify' => "[brmstatus] Manual override by $nick (web)" );
+	$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
 	main::status_update($newstatus);
 
 	$response->protocol("HTTP/1.1");
@@ -396,7 +394,8 @@ sub new {
 		object_states => [
 			$self => [ qw(_start _default
 					irc_001 irc_public irc_332 irc_topic
-					topic_update notify) ],
+					notify_update notify_manual_update
+					notify_door_unauth notify_door_unlocked) ],
 		],
 		heap => { irc => $irc, connector => $connector },
 	);
@@ -456,7 +455,7 @@ sub irc_332 {
 	my ($sender, $server, $str, $data) = @_[SENDER, ARG0 .. ARG2];
 	$topic = $data->[1];
 	print "new topic: $topic\n";
-	topic_update();
+	topic_update($_[HEAP]->{irc});
 }
 
 sub irc_topic {
@@ -464,10 +463,11 @@ sub irc_topic {
 	my $channel = $where;
 	$topic = $what;
 	print "new topic: $topic\n";
-	topic_update();
+	topic_update($_[HEAP]->{irc});
 }
 
 sub topic_update {
+	my ($irc) = @_;
 	my $newtopic = $topic;
 	if ($status) {
 		$newtopic =~ s/BRMLAB CLOSED/BRMLAB OPEN/g;
@@ -481,15 +481,37 @@ sub topic_update {
 	}
 	if ($newtopic ne $topic) {
 		$topic = $newtopic;
-		# retrieve our component's object from the heap where we stashed it
-		my $irc = $_[HEAP]->{irc};
 		$irc->yield (topic => $channel => $topic );
 	}
 }
 
-sub notify {
-	my ($sender, $msg) = @_[SENDER, ARG0];
+sub notify_update {
+	my ($sender, $comp, $status, $extra) = @_[SENDER, ARG0 .. ARG2];
 	my $irc = $_[HEAP]->{irc};
+	my $msg = "[$comp] update: \002$status";
+	$extra and $msg .= "\002 $extra";
+	$irc->yield (privmsg => $channel => $msg );
+	topic_update($irc);
+}
+
+sub notify_manual_update {
+	my ($sender, $comp, $nick) = @_[SENDER, ARG0];
+	my $irc = $_[HEAP]->{irc};
+	my $msg = "[$comp] Manual override by $nick (web)";
+	$irc->yield (privmsg => $channel => $msg );
+}
+
+sub notify_door_unauth {
+	my ($sender) = $_[SENDER];
+	my $irc = $_[HEAP]->{irc};
+	my $msg = "[door] unauthorized access denied!";
+	$irc->yield (privmsg => $channel => $msg );
+}
+
+sub notify_door_unlocked {
+	my ($sender, $nick) = @_[SENDER, ARG0];
+	my $irc = $_[HEAP]->{irc};
+	my $msg = "[door] unlocked by: \002$nick";
 	$irc->yield (privmsg => $channel => $msg );
 }
 
