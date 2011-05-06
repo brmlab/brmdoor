@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use POE qw(Component::Server::HTTP Wheel::ReadWrite Filter::Line);
+use POE qw(Wheel::ReadWrite Filter::Line);
 use Symbol qw(gensym);
 use Device::SerialPort;
 use HTTP::Status qw/RC_OK/;
@@ -16,19 +16,7 @@ our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
 my $serial;
 
 my $irc = brmd::IRC->new();
-
-my $web = POE::Component::Server::HTTP->new(
-	Port           => 8088,
-	ContentHandler => {
-		"/brmstatus.html" => \&web_brmstatus_html,
-		"/brmstatus.js" => \&web_brmstatus_js,
-		"/brmstatus.png" => \&web_brmstatus_png,
-		"/brmstatus.txt" => \&web_brmstatus_txt,
-		"/brmstatus-switch" => \&web_brmstatus_switch,
-		"/" => \&web_index
-	},
-	Headers => {Server => 'brmd/xxx'},
-) or die "Oh neee! $!";
+my $web = brmd::WWW->new();
 
 
 POE::Session->create(
@@ -39,7 +27,7 @@ POE::Session->create(
 		serial_input => \&serial_input,
 		serial_error => \&serial_error,
 	},
-	heap => { irc => $irc },
+	heap => { irc => $irc, web => $web },
 );
 
 $poe_kernel->run();
@@ -162,6 +150,56 @@ sub serial_error {
 
 ## Web interface
 
+package brmd::WWW;
+
+use POE qw(Component::Server::HTTP);
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	my $web = POE::Component::Server::HTTP->new(
+		Port           => 8088,
+		ContentHandler => {
+			"/brmstatus.html" => \&web_brmstatus_html,
+			"/brmstatus.js" => \&web_brmstatus_js,
+			"/brmstatus.png" => \&web_brmstatus_png,
+			"/brmstatus.txt" => \&web_brmstatus_txt,
+			"/brmstatus-switch" => \&web_brmstatus_switch,
+			"/" => \&web_index
+		},
+		Headers => {Server => 'brmd/xxx'},
+	) or die "WWW fail: $!";
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default) ],
+		],
+		heap => { web => $web },
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "WWW $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
+
 sub disable_caching {
 	my ($response) = @_;
 	$response->push_header("Cache-Control", "no-cache, must-revalidate");
@@ -171,8 +209,8 @@ sub disable_caching {
 sub web_index {
 	my ($request, $response) = @_;
 
-	my $sts = status_str();
-	my $str = record_str();
+	my $sts = main::status_str();
+	my $str = main::record_str();
 
 	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
@@ -253,7 +291,7 @@ EOT
 sub web_brmstatus_txt {
 	my ($request, $response) = @_;
 
-	my $st = status_str();
+	my $st = main::status_str();
 
 	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
@@ -295,7 +333,7 @@ sub web_brmstatus_switch {
 	$serial->flush();
 
 	$poe_kernel->post($irc, 'notify' => "[brmstatus] Manual override by $nick (web)" );
-	status_update($newstatus);
+	main::status_update($newstatus);
 
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
