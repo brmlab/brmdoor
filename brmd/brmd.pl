@@ -2,8 +2,7 @@
 
 use strict;
 use warnings;
-use POE qw(Component::IRC Component::IRC::Plugin::Connector Component::Server::HTTP
-		Wheel::ReadWrite Filter::Line);
+use POE qw(Component::Server::HTTP Wheel::ReadWrite Filter::Line);
 use Symbol qw(gensym);
 use Device::SerialPort;
 use HTTP::Status qw/RC_OK/;
@@ -16,11 +15,7 @@ our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $serial;
 
-my $irc = POE::Component::IRC->spawn(
-	nick => 'brmbot',
-	ircname => 'The Brmlab Automaton',
-	server => 'irc.freenode.org',
-) or die "Oh noooo! $!";
+my $irc = brmd::IRC->new();
 
 my $web = POE::Component::Server::HTTP->new(
 	Port           => 8088,
@@ -38,7 +33,7 @@ my $web = POE::Component::Server::HTTP->new(
 
 POE::Session->create(
 	package_states => [
-		main => [ qw(_default _start irc_001 irc_public irc_332 irc_topic) ],
+		main => [ qw(_default _start) ],
 	],
 	inline_states => {
 		serial_input => \&serial_input,
@@ -62,19 +57,11 @@ sub _start {
 		InputEvent => "serial_input",
 		ErrorEvent => "serial_error",
 	) or die "Oh ooops! $!";
-
-	# retrieve our component's object from the heap where we stashed it
-	my $irc = $heap->{irc};
-
-	$irc->yield( register => 'all' );
-	$heap->{connector} = POE::Component::IRC::Plugin::Connector->new();
-	$irc->plugin_add( 'Connector' => $heap->{connector} );
-	$irc->yield( connect => { } );
 }
 
 sub _default {
 	my ($event, $args) = @_[ARG0 .. $#_];
-	my @output = ( (scalar localtime), "$event: " );
+	my @output = ( (scalar localtime), "main $event: " );
 
 	for my $arg (@$args) {
 		if ( ref $arg eq 'ARRAY' ) {
@@ -103,30 +90,12 @@ sub stream_switch {
 sub record_start { stream_switch(1); }
 sub record_stop { stream_switch(0); }
 
-sub topic_update {
-	my $newtopic = $topic;
-	if ($status) {
-		$newtopic =~ s/BRMLAB CLOSED/BRMLAB OPEN/g;
-	} else {
-		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
-	}
-	if ($record) {
-		$newtopic =~ s#OFF AIR#ON AIR ($streamurl)#g;
-	} else {
-		$newtopic =~ s#ON AIR.*? \|#OFF AIR |#g;
-	}
-	if ($newtopic ne $topic) {
-		$topic = $newtopic;
-		$irc->yield (topic => $channel => $topic );
-	}
-}
-
 sub status_update {
 	my ($newstatus) = @_;
 	$status = $newstatus;
 	my $st = status_str();
-	$irc->yield (privmsg => $channel => "[brmstatus] update: \002$st" );
-	topic_update();
+	$poe_kernel->post( $irc, notify => "[brmstatus] update: \002$st" );
+	$poe_kernel->post( $irc, 'topic_update' );
 }
 
 sub record_update {
@@ -140,8 +109,8 @@ sub record_update {
 
 	my $st = record_str();
 	$record and $st .= "\002 $streamurl";
-	$irc->yield (privmsg => $channel => "[brmvideo] update: \002$st" );
-	topic_update();
+	$poe_kernel->post( $irc, notify => "[brmvideo] update: \002$st" );
+	$poe_kernel->post( $irc, 'topic_update' );
 }
 
 
@@ -177,9 +146,9 @@ sub serial_input {
 	if ($brm =~ s/^CARD //) {
 		print "from brmdoor: $input\n";
 		if ($brm =~ /^UNKNOWN/) {
-			$irc->yield (privmsg => $channel => "[brmdoor] unauthorized access denied!" );
+			$poe_kernel->post( $irc, 'notify' => "[brmdoor] unauthorized access denied!" );
 		} else {
-			$irc->yield (privmsg => $channel => "[brmdoor] unlocked by: \002$brm" );
+			$poe_kernel->post( $irc, 'notify' => "[brmdoor] unlocked by: \002$brm" );
 		}
 	}
 }
@@ -325,7 +294,7 @@ sub web_brmstatus_switch {
 	$serial->put('s'.$newstatus);
 	$serial->flush();
 
-	$irc->yield (privmsg => $channel => "[brmstatus] Manual override by $nick (web)" );
+	$poe_kernel->post($irc, 'notify' => "[brmstatus] Manual override by $nick (web)" );
 	status_update($newstatus);
 
 	$response->protocol("HTTP/1.1");
@@ -337,6 +306,56 @@ sub web_brmstatus_switch {
 
 
 ## IRC
+
+package brmd::IRC;
+
+use POE qw(Component::IRC Component::IRC::Plugin::Connector);
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	my $irc = POE::Component::IRC->spawn(
+		nick => 'brmbot',
+		ircname => 'The Brmitron',
+		server => 'irc.freenode.org',
+	) or die "IRC fail: $!";
+	my $connector = POE::Component::IRC::Plugin::Connector->new();
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default
+					irc_001 irc_public irc_332 irc_topic
+					topic_update notify) ],
+		],
+		heap => { irc => $irc, connector => $connector },
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+	my $irc = $_[HEAP]->{irc};
+	$irc->yield( register => 'all' );
+	$irc->plugin_add( 'Connector' => $_[HEAP]->{connector} );
+	$irc->yield( connect => { } );
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "IRC $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
 
 sub irc_001 {
 	my $sender = $_[SENDER];
@@ -353,6 +372,7 @@ sub irc_001 {
 
 sub irc_public {
 	my ($sender, $who, $where, $what) = @_[SENDER, ARG0 .. ARG2];
+	my $irc = $sender->get_heap();
 	my $nick = ( split /!/, $who )[0];
 	my $channel = $where->[0];
 
@@ -376,3 +396,31 @@ sub irc_topic {
 	print "new topic: $topic\n";
 	topic_update();
 }
+
+sub topic_update {
+	my $newtopic = $topic;
+	if ($status) {
+		$newtopic =~ s/BRMLAB CLOSED/BRMLAB OPEN/g;
+	} else {
+		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
+	}
+	if ($record) {
+		$newtopic =~ s#OFF AIR#ON AIR ($streamurl)#g;
+	} else {
+		$newtopic =~ s#ON AIR.*? \|#OFF AIR |#g;
+	}
+	if ($newtopic ne $topic) {
+		$topic = $newtopic;
+		# retrieve our component's object from the heap where we stashed it
+		my $irc = $_[HEAP]->{irc};
+		$irc->yield (topic => $channel => $topic );
+	}
+}
+
+sub notify {
+	my ($sender, $msg) = @_[SENDER, ARG0];
+	my $irc = $_[HEAP]->{irc};
+	$irc->yield (privmsg => $channel => $msg );
+}
+
+1;
