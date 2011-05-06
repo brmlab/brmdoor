@@ -3,8 +3,6 @@
 use strict;
 use warnings;
 use POE;
-use HTTP::Status qw/RC_OK/;
-use CGI;
 
 our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
@@ -185,6 +183,8 @@ sub serial_error {
 package brmd::WWW;
 
 use POE qw(Component::Server::HTTP);
+use HTTP::Status qw/RC_OK/;
+use CGI;
 
 sub new {
 	my $class = shift;
