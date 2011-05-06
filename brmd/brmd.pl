@@ -2,9 +2,7 @@
 
 use strict;
 use warnings;
-use POE qw(Wheel::ReadWrite Filter::Line);
-use Symbol qw(gensym);
-use Device::SerialPort;
+use POE;
 use HTTP::Status qw/RC_OK/;
 use CGI;
 
@@ -12,21 +10,17 @@ our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
 our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
-
-my $serial;
+our $serial;
 
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
+my $door = brmd::Door->new();
 
 
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start) ],
 	],
-	inline_states => {
-		serial_input => \&serial_input,
-		serial_error => \&serial_error,
-	},
 	heap => { irc => $irc, web => $web },
 );
 
@@ -34,17 +28,6 @@ $poe_kernel->run();
 
 
 sub _start {
-	my $heap = $_[HEAP];
-
-	$serial = $heap->{serial} = POE::Wheel::ReadWrite->new(
-		Handle => serial_open($device),
-		Filter => POE::Filter::Line->new(
-			InputLiteral  => "\x0A",    # Received line endings.
-			OutputLiteral => "\x0A",    # Sent line endings.
-			),
-		InputEvent => "serial_input",
-		ErrorEvent => "serial_error",
-	) or die "Oh ooops! $!";
 }
 
 sub _default {
@@ -102,7 +85,56 @@ sub record_update {
 }
 
 
-## Brmdoor serial
+## Door serial
+
+package brmd::Door;
+
+use POE qw(Wheel::ReadWrite Filter::Line);
+use Symbol qw(gensym);
+use Device::SerialPort;
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default
+					serial_input serial_error) ],
+		],
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+
+	$serial = $_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
+		Handle => serial_open($device),
+		Filter => POE::Filter::Line->new(
+			InputLiteral  => "\x0A",    # Received line endings.
+			OutputLiteral => "\x0A",    # Sent line endings.
+			),
+		InputEvent => "serial_input",
+		ErrorEvent => "serial_error",
+	) or die "Door fail: $!";
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "Door $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
 
 sub serial_open {
 	my ($device) = @_;
@@ -132,11 +164,11 @@ sub serial_input {
 		record_update($cur_record);
 	}
 	if ($brm =~ s/^CARD //) {
-		print "from brmdoor: $input\n";
+		print "from door: $input\n";
 		if ($brm =~ /^UNKNOWN/) {
-			$poe_kernel->post( $irc, 'notify' => "[brmdoor] unauthorized access denied!" );
+			$poe_kernel->post( $irc, 'notify' => "[door] unauthorized access denied!" );
 		} else {
-			$poe_kernel->post( $irc, 'notify' => "[brmdoor] unlocked by: \002$brm" );
+			$poe_kernel->post( $irc, 'notify' => "[door] unlocked by: \002$brm" );
 		}
 	}
 }
