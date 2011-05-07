@@ -61,10 +61,9 @@ sub status_update {
 
 	if ($manual) {
 		$poe_kernel->post($door, 'status_override', $status);
-		$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
 	}
 
-	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st );
+	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st, undef, $manual, $nick );
 }
 
 sub record_update {
@@ -387,7 +386,7 @@ sub web_brmstatus_switch {
 
 	my $newstatus = not $status;
 	foreach (@{$self->{observers}}) {
-		$poe_kernel->post($_, 'status_update', $newstatus, 'manual', $nick);
+		$poe_kernel->post($_, 'status_update', $newstatus, 'web', $nick);
 	}
 
 	$response->protocol("HTTP/1.1");
@@ -419,7 +418,7 @@ sub new {
 		object_states => [
 			$self => [ qw(_start _default
 					irc_001 irc_public irc_332 irc_topic
-					notify_update notify_manual_update
+					notify_update
 					notify_door_unauth notify_door_unlocked) ],
 		],
 		heap => { irc => $irc, connector => $connector },
@@ -511,19 +510,13 @@ sub topic_update {
 }
 
 sub notify_update {
-	my ($sender, $comp, $status, $extra) = @_[SENDER, ARG0 .. ARG2];
+	my ($sender, $comp, $status, $extra, $manual, $nick) = @_[SENDER, ARG0 .. ARG4];
 	my $irc = $_[HEAP]->{irc};
-	my $msg = "[$comp] update: \002$status";
-	$extra and $msg .= "\002 $extra";
+	my $msg = "[$comp] update: \002$status\002";
+	$extra and $msg .= " $extra";
+	$manual and $msg .= " ($manual manual override by $nick)";
 	$irc->yield (privmsg => $channel => $msg );
 	topic_update($irc);
-}
-
-sub notify_manual_update {
-	my ($sender, $comp, $nick) = @_[SENDER, ARG0];
-	my $irc = $_[HEAP]->{irc};
-	my $msg = "[$comp] Manual override by $nick (web)";
-	$irc->yield (privmsg => $channel => $msg );
 }
 
 sub notify_door_unauth {
