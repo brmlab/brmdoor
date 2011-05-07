@@ -7,7 +7,7 @@ use POE;
 our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
 our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
-our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
+our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
@@ -18,7 +18,7 @@ my $stream = brmd::Stream->new();
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start
-				status_update record_update) ],
+				status_update streaming_update) ],
 	],
 	heap => { irc => $irc, web => $web, door => $door, stream => $stream },
 );
@@ -50,8 +50,8 @@ sub status_str {
 	$status ? 'OPEN' : 'CLOSED';
 }
 
-sub record_str {
-	$record ? 'ON AIR' : 'OFF AIR';
+sub streaming_str {
+	$streaming ? 'ON AIR' : 'OFF AIR';
 }
 
 sub status_update {
@@ -66,18 +66,18 @@ sub status_update {
 	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st, undef, $manual, $nick );
 }
 
-sub record_update {
-	my ($self, $newrecord) = @_[OBJECT, ARG0];
-	$record = $newrecord;
-	if ($record) {
+sub streaming_update {
+	my ($self, $newstreaming) = @_[OBJECT, ARG0];
+	$streaming = $newstreaming;
+	if ($streaming) {
 		$poe_kernel->post( $stream, 'stream_start' );
 	} else {
 		$poe_kernel->post( $stream, 'stream_stop' );
 	}
 
-	my $st = record_str();
-	$record and $st .= "\002 $streamurl";
-	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $record ? $streamurl : undef );
+	my $st = streaming_str();
+	$streaming and $st .= "\002 $streamurl";
+	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $streaming ? $streamurl : undef );
 }
 
 
@@ -160,15 +160,15 @@ sub serial_input {
 	my ($self, $input) = @_[OBJECT, ARG0];
 	print ((scalar localtime)." $input\n");
 	$input =~ /^(\d) (\d) (.*)$/ or return;
-	my ($cur_status, $cur_record, $brm) = ($1, $2, $3);
+	my ($cur_status, $cur_streaming, $brm) = ($1, $2, $3);
 	if ($cur_status != $status) {
 		foreach (@{$self->{observers}}) {
 			$poe_kernel->post($_, 'status_update', $cur_status);
 		}
 	}
-	if ($cur_record != $record) {
+	if ($cur_streaming != $streaming) {
 		foreach (@{$self->{observers}}) {
-			$poe_kernel->post($_, 'record_update', $cur_record);
+			$poe_kernel->post($_, 'streaming_update', $cur_streaming);
 		}
 	}
 	if ($brm =~ s/^CARD //) {
@@ -267,7 +267,7 @@ sub web_index {
 	my ($request, $response) = @_;
 
 	my $sts = main::status_str();
-	my $str = main::record_str();
+	my $str = main::streaming_str();
 
 	$response->protocol("HTTP/1.1");
 	$response->code(RC_OK);
@@ -275,7 +275,7 @@ sub web_index {
 	disable_caching($response);
 
 	my $r_link = '';
-	$record and $r_link .= '<a href="'.$streamurl.'">watch now!</a>';
+	$streaming and $r_link .= '<a href="'.$streamurl.'">watch now!</a>';
 
 	$response->content(<<EOT
 <html>
@@ -498,7 +498,7 @@ sub topic_update {
 	} else {
 		$newtopic =~ s/BRMLAB OPEN/BRMLAB CLOSED/g;
 	}
-	if ($record) {
+	if ($streaming) {
 		$newtopic =~ s#OFF AIR#ON AIR ($streamurl)#g;
 	} else {
 		$newtopic =~ s#ON AIR.*? \|#OFF AIR |#g;
