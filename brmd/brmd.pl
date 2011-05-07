@@ -56,9 +56,17 @@ sub record_str {
 }
 
 sub status_update {
-	my ($self, $newstatus) = @_[OBJECT, ARG0];
+	my ($self, $newstatus, $manual, $nick) = @_[OBJECT, ARG0 .. ARG2];
 	$status = $newstatus;
 	my $st = status_str();
+
+	if ($manual) {
+		$serial->put('s'.$newstatus);
+		$serial->flush();
+
+		$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
+	}
+
 	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st );
 }
 
@@ -372,13 +380,8 @@ sub web_brmstatus_switch {
 	my $nick = $q->param('nick');
 
 	my $newstatus = not $status;
-
-	$serial->put('s'.$newstatus);
-	$serial->flush();
-
-	$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
 	foreach (@{$self->{observers}}) {
-		$poe_kernel->post($_, 'status_update', $newstatus);
+		$poe_kernel->post($_, 'status_update', $newstatus, 'manual', $nick);
 	}
 
 	$response->protocol("HTTP/1.1");
