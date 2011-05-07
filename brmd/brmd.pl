@@ -8,7 +8,6 @@ our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
 our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
 our ($status, $record, $topic) = (0, 0, 'BRMLAB OPEN');
-our $serial;
 
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
@@ -61,9 +60,7 @@ sub status_update {
 	my $st = status_str();
 
 	if ($manual) {
-		$serial->put('s'.$newstatus);
-		$serial->flush();
-
+		$poe_kernel->post($door, 'status_override', $status);
 		$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
 	}
 
@@ -100,7 +97,8 @@ sub new {
 	POE::Session->create(
 		object_states => [
 			$self => [ qw(_start _default register
-					serial_input serial_error) ],
+					serial_input serial_error
+					status_override) ],
 		],
 	);
 
@@ -110,7 +108,7 @@ sub new {
 sub _start {
 	$_[KERNEL]->alias_set("$_[OBJECT]");
 
-	$serial = $_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
+	$_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
 		Handle => serial_open($device),
 		Filter => POE::Filter::Line->new(
 			InputLiteral  => "\x0A",    # Received line endings.
@@ -189,6 +187,14 @@ sub serial_error {
 	print "$_[ARG0] error $_[ARG1]: $_[ARG2]\n";
 	print "bye!\n";
 }
+
+sub status_override {
+	my ($heap, $status) = @_[HEAP, ARG0];
+	my $serial = $heap->{serial};
+	$serial->put('s'.$status);
+	$serial->flush();
+}
+
 
 
 ## Web interface
