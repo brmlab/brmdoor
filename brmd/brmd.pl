@@ -76,7 +76,6 @@ sub streaming_update {
 	}
 
 	my $st = streaming_str();
-	$streaming and $st .= "\002 $streamurl";
 	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $streaming ? $streamurl : undef );
 }
 
