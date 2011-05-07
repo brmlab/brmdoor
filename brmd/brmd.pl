@@ -18,15 +18,18 @@ my $stream = brmd::Stream->new();
 
 POE::Session->create(
 	package_states => [
-		main => [ qw(_default _start) ],
+		main => [ qw(_default _start
+				status_update record_update) ],
 	],
-	heap => { irc => $irc, web => $web, stream => $stream },
+	heap => { irc => $irc, web => $web, door => $door, stream => $stream },
 );
 
 $poe_kernel->run();
 
 
 sub _start {
+	$poe_kernel->post($_[HEAP]->{web}, 'register');
+	$poe_kernel->post($_[HEAP]->{door}, 'register');
 }
 
 sub _default {
@@ -53,14 +56,14 @@ sub record_str {
 }
 
 sub status_update {
-	my ($newstatus) = @_;
+	my ($self, $newstatus) = @_[OBJECT, ARG0];
 	$status = $newstatus;
 	my $st = status_str();
 	$poe_kernel->post( $irc, 'notify_update', 'brmstatus', $st );
 }
 
 sub record_update {
-	my ($newrecord) = @_;
+	my ($self, $newrecord) = @_[OBJECT, ARG0];
 	$record = $newrecord;
 	if ($record) {
 		$poe_kernel->post( $stream, 'stream_start' );
@@ -88,7 +91,7 @@ sub new {
 
 	POE::Session->create(
 		object_states => [
-			$self => [ qw(_start _default
+			$self => [ qw(_start _default register
 					serial_input serial_error) ],
 		],
 	);
@@ -125,6 +128,13 @@ sub _default {
 	print join ' ', @output, "\n";
 }
 
+sub register {
+	my ($self, $sender) = @_[OBJECT, SENDER];
+	my $sid = $sender->ID;
+	$poe_kernel->refcount_increment($sid, 'observer_WWW'); # XXX: No decrement
+	push (@{$self->{'observers'}}, $sid);
+}
+
 sub serial_open {
 	my ($device) = @_;
 	# Open a serial port, and tie it to a file handle for POE.
@@ -142,15 +152,19 @@ sub serial_open {
 }
 
 sub serial_input {
-	my ($input) = ($_[ARG0]);
+	my ($self, $input) = @_[OBJECT, ARG0];
 	print ((scalar localtime)." $input\n");
 	$input =~ /^(\d) (\d) (.*)$/ or return;
 	my ($cur_status, $cur_record, $brm) = ($1, $2, $3);
 	if ($cur_status != $status) {
-		status_update($cur_status);
+		foreach (@{$self->{observers}}) {
+			$poe_kernel->post($_, 'status_update', $cur_status);
+		}
 	}
 	if ($cur_record != $record) {
-		record_update($cur_record);
+		foreach (@{$self->{observers}}) {
+			$poe_kernel->post($_, 'record_update', $cur_record);
+		}
 	}
 	if ($brm =~ s/^CARD //) {
 		print "from door: $input\n";
@@ -188,7 +202,7 @@ sub new {
 			"/brmstatus.js" => \&web_brmstatus_js,
 			"/brmstatus.png" => \&web_brmstatus_png,
 			"/brmstatus.txt" => \&web_brmstatus_txt,
-			"/brmstatus-switch" => \&web_brmstatus_switch,
+			"/brmstatus-switch" => sub { $self->web_brmstatus_switch(@_) },
 			"/" => \&web_index
 		},
 		Headers => {Server => 'brmd/xxx'},
@@ -196,7 +210,7 @@ sub new {
 
 	POE::Session->create(
 		object_states => [
-			$self => [ qw(_start _default) ],
+			$self => [ qw(_start _default register) ],
 		],
 		heap => { web => $web },
 	);
@@ -221,6 +235,13 @@ sub _default {
 		}
 	}
 	print join ' ', @output, "\n";
+}
+
+sub register {
+	my ($self, $sender) = @_[OBJECT, SENDER];
+	my $sid = $sender->ID;
+	$poe_kernel->refcount_increment($sid, 'observer_WWW'); # XXX: No decrement
+	push (@{$self->{'observers'}}, $sid);
 }
 
 sub disable_caching {
@@ -345,7 +366,7 @@ sub web_brmstatus_png {
 }
 
 sub web_brmstatus_switch {
-	my ($request, $response) = @_;
+	my ($self, $request, $response) = @_;
 
 	my $q = new CGI($request->content);
 	my $nick = $q->param('nick');
@@ -356,7 +377,9 @@ sub web_brmstatus_switch {
 	$serial->flush();
 
 	$poe_kernel->post($irc, 'notify_manual_update', 'brmstatus', $nick );
-	main::status_update($newstatus);
+	foreach (@{$self->{observers}}) {
+		$poe_kernel->post($_, 'status_update', $newstatus);
+	}
 
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
