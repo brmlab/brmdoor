@@ -98,6 +98,7 @@ sub record_str {
 sub stream_switch {
 	my ($s) = @_;
 	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+	system('~/alphasign/'.($s?'on':'off').'_air.py');
 }
 
 sub record_start { stream_switch(1); }
