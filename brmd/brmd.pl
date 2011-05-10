@@ -287,7 +287,7 @@ sub web_index {
 <li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
 <li><strong>brmvideo</strong> ($str) $r_link</li>
 </ul>
-<p align="right"><a href="http://gitorious.org/brmlab/brmdoor">(view source)</a></p>
+<p align="right"><a href="http://github.com/brmlab/brmdoor">(view source)</a></p>
 </body></html>
 EOT
 	);
@@ -577,6 +577,7 @@ sub _default {
 sub stream_switch {
 	my ($s) = @_;
 	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+	system('~/alphasign/'.($s?'on':'off').'_air.py');
 }
 
 sub stream_start {
