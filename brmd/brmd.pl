@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+# 2011 (c)  Petr Baudis <pasky@suse.cz>, brmlab
+# You can distribute this under the same terms as Perl itself.
 
 use strict;
 use warnings;
