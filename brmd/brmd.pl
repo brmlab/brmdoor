@@ -15,6 +15,7 @@ my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
 my $door = brmd::Door->new();
 my $stream = brmd::Stream->new();
+my $alphasign = brmd::Alphasign->new();
 
 
 POE::Session->create(
@@ -22,7 +23,7 @@ POE::Session->create(
 		main => [ qw(_default _start
 				status_update streaming_update) ],
 	],
-	heap => { irc => $irc, web => $web, door => $door, stream => $stream },
+	heap => { irc => $irc, web => $web, door => $door, stream => $stream, alphasign => $alphasign },
 );
 
 $poe_kernel->run();
@@ -72,9 +73,9 @@ sub streaming_update {
 	my ($self, $newstreaming) = @_[OBJECT, ARG0];
 	$streaming = $newstreaming;
 	if ($streaming) {
-		$poe_kernel->post( $stream, 'stream_start' );
+		$poe_kernel->post( $_, 'stream_start' ) for ($stream, $alphasign);
 	} else {
-		$poe_kernel->post( $stream, 'stream_stop' );
+		$poe_kernel->post( $_, 'stream_stop' ) for ($stream, $alphasign);
 	}
 
 	my $st = streaming_str();
@@ -579,6 +580,60 @@ sub _default {
 sub stream_switch {
 	my ($s) = @_;
 	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+}
+
+sub stream_start {
+	stream_switch(1);
+}
+
+sub stream_stop {
+	stream_switch(0);
+}
+
+1;
+
+
+## Alphasign LED Display
+
+package brmd::Alphasign;
+
+use POE;
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default
+					stream_start stream_stop) ],
+		],
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "Alphasign $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
+
+sub stream_switch {
+	my ($s) = @_;
 	system('~/alphasign/'.($s?'on':'off').'_air.py');
 }
 
