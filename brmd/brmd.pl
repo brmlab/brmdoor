@@ -138,7 +138,7 @@ sub _default {
 sub register {
 	my ($self, $sender) = @_[OBJECT, SENDER];
 	my $sid = $sender->ID;
-	$poe_kernel->refcount_increment($sid, 'observer_WWW'); # XXX: No decrement
+	$poe_kernel->refcount_increment($sid, 'observer_door'); # XXX: No decrement
 	push (@{$self->{'observers'}}, $sid);
 }
 
