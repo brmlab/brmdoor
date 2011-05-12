@@ -9,6 +9,7 @@ use POE;
 our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/ttyUSB0";
+our $devasign = $ARGV[0]; $devasign ||= "/dev/ttyUSB1";
 our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $irc = brmd::IRC->new();
@@ -597,7 +598,9 @@ sub stream_stop {
 
 package brmd::Alphasign;
 
-use POE;
+use POE qw(Wheel::ReadWrite Filter::Block);
+use Symbol qw(gensym);
+use Device::SerialPort;
 
 sub new {
 	my $class = shift;
@@ -606,6 +609,7 @@ sub new {
 	POE::Session->create(
 		object_states => [
 			$self => [ qw(_start _default
+					serial_error text
 					stream_start stream_stop) ],
 		],
 	);
@@ -615,6 +619,14 @@ sub new {
 
 sub _start {
 	$_[KERNEL]->alias_set("$_[OBJECT]");
+
+	$_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
+		Handle => serial_open($devasign),
+		Filter => POE::Filter::Block->new(
+			LengthCodec => [ \&as_encoder, \&as_decoder ],
+			),
+		ErrorEvent => "serial_error",
+	) or die "Alphasign fail: $!";
 }
 
 sub _default {
@@ -632,17 +644,71 @@ sub _default {
 	print join ' ', @output, "\n";
 }
 
-sub stream_switch {
-	my ($s) = @_;
-	system('~/alphasign/'.($s?'on':'off').'_air.py');
+sub serial_open {
+	my ($device) = @_;
+	# Open a serial port, and tie it to a file handle for POE.
+	my $handle = gensym();
+	my $port = tie(*$handle, "Device::SerialPort", $device);
+	die "can't open port: $!" unless $port;
+	$port->datatype('raw');
+	$port->baudrate(9600);
+	$port->databits(8);
+	$port->parity("none");
+	$port->stopbits(1);
+	$port->handshake("none");
+	$port->write_settings();
+	$port->write("E\$" . "AAU0100FF00" . "CDU075A2000" . "BBL000F0000");
+	return $handle;
 }
 
+sub serial_error {
+	my ($heap) = ($_[HEAP]);
+	print "$_[ARG0] error $_[ARG1]: $_[ARG2]\n";
+	print "bye!\n";
+}
+
+sub as_encoder {
+	my $stuff = shift;
+        $$stuff = "\x00" x 5   # packet sync characters
+	          . "\x01"     # start of header
+	          . "Z"        # all types
+	          . "00"       # broadcast address
+	          . "\x02"     # start of text
+	          . $$stuff    # raw data
+	          . "\x04";    # end of transmission
+	return;
+}
+
+sub as_decoder {
+	return 1; # XXX
+}
+
+# TODO: have text() a simple markup parser, and raw_text() for writing it out
+
+sub text {
+	my ($heap, $mode, $string) = (@_[HEAP, ARG0, ARG1]);
+	print "out text: $mode, $string\n";
+	my $s = "A"          # text mode
+	        . "A"        # file label
+	        . "\x1B"     # start of text
+	        . " "        # use middle line (irrelevant on singleline display)
+	        . $mode      # display mode
+	        . "\x1C1"    # set default color = red
+	        . $string;   # text to display
+	$_[HEAP]{serial}->put($s);
+}
+
+#sub stream_switch {
+#	my ($s) = @_;
+#	system('~/alphasign/'.($s?'on':'off').'_air.py');
+#}
+
 sub stream_start {
-	stream_switch(1);
+	$_[KERNEL]->yield('text', 'b', "\x1D01ON AIR\x1D00");
 }
 
 sub stream_stop {
-	stream_switch(0);
+	$_[KERNEL]->yield('text', 'b', "\x1D00OFF AIR\x1D00");
 }
 
 1;

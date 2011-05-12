@@ -4,6 +4,11 @@
 * Potentially some prettier icons and richer javascript stubs.
 
 
+* Alphasign: Web interface (while OFF AIR).
+	Also add real support for colors and beeping streaming
+	notification.
+
+
 * Way to unlock door remotely (through some secure channel).
 	Bi-directional communication will be required.
 
