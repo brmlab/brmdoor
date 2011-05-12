@@ -8,7 +8,7 @@ use POE;
 
 our $channel = "#brmlab";
 our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
-our $device = $ARGV[0]; $device ||= "/dev/ttyUSB0";
+our $devdoor = $ARGV[0]; $devdoor ||= "/dev/ttyUSB0";
 our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
 
 my $irc = brmd::IRC->new();
@@ -110,7 +110,7 @@ sub _start {
 	$_[KERNEL]->alias_set("$_[OBJECT]");
 
 	$_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
-		Handle => serial_open($device),
+		Handle => serial_open($devdoor),
 		Filter => POE::Filter::Line->new(
 			InputLiteral  => "\x0A",    # Received line endings.
 			OutputLiteral => "\x0A",    # Sent line endings.
