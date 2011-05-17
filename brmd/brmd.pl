@@ -219,6 +219,8 @@ sub new {
 			"/brmstatus.png" => \&web_brmstatus_png,
 			"/brmstatus.txt" => \&web_brmstatus_txt,
 			"/brmstatus-switch" => sub { $self->web_brmstatus_switch(@_) },
+			"/alphasign" => \&web_alphasign_text,
+			"/alphasign-set" => \&web_alphasign_set,
 			"/" => \&web_index
 		},
 		Headers => {Server => 'brmd/xxx'},
@@ -280,6 +282,10 @@ sub web_index {
 	my $r_link = '';
 	$streaming and $r_link .= '<a href="'.$streamurl.'">watch now!</a>';
 
+	my $astext = $alphasign->last_text_escaped();
+	my $a_link = '';
+	$streaming or $a_link .= '<a href="alphasign">change</a>';
+
 	$response->content(<<EOT
 <html>
 <head><title>brmd</title></head>
@@ -290,6 +296,7 @@ sub web_index {
 <ul>
 <li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
 <li><strong>brmvideo</strong> ($str) $r_link</li>
+<li><strong>alphasign</strong> ($astext) $a_link</li>
 </ul>
 <p align="right"><a href="http://github.com/brmlab/brmdoor">(view source)</a></p>
 </body></html>
@@ -395,6 +402,59 @@ sub web_brmstatus_switch {
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
 	$response->header('Location' => 'brmstatus.html');
+
+	return RC_OK;
+}
+
+sub web_alphasign_text {
+	my ($request, $response) = @_;
+
+	$response->protocol("HTTP/1.1");
+	$response->code(RC_OK);
+	$response->push_header("Content-Type", "text/html");
+	disable_caching($response);
+	my $text = $alphasign->last_text_escaped();
+	my $help = $alphasign->markup_help();
+	$help =~ s/&/&amp;/g; $help =~ s/</&lt;/g; $help =~ s/>/&gt;/g;
+	$help =~ s/\n/<br \/>/g;
+	my $modes = join("\n", map { "<option>$_</option>" } $alphasign->mode_list());
+
+	$response->content(<<EOT
+<html>
+<head><title>brm alphasign</title></head>
+<body>
+<h1 align="center">brm alphasign</h1>
+<p align="center">Current text: $text</p>
+<hr />
+<p>$help</p>
+<p>
+<form method="post" action="alphasign-set">
+<strong>New text:</strong>
+<select name="mode">$modes</select>
+<input type="text" name="text" value="$text" />
+<input type="submit" name="s" value="Update" />
+</form>
+</p>
+</td></tr></table>
+</body></html>
+EOT
+	);
+
+	return RC_OK;
+}
+
+sub web_alphasign_set {
+	my ($request, $response) = @_;
+
+	my $q = new CGI($request->content);
+	my $mode = $q->param('mode');
+	my $text = $q->param('text');
+
+	$streaming or $poe_kernel->post($alphasign, 'text', $mode, $text);
+
+	$response->protocol("HTTP/1.1");
+	$response->code(302);
+	$response->header('Location' => 'alphasign');
 
 	return RC_OK;
 }
@@ -601,15 +661,17 @@ package brmd::Alphasign;
 use POE qw(Wheel::ReadWrite Filter::Block);
 use Symbol qw(gensym);
 use Device::SerialPort;
+use Tie::IxHash;
 
 sub new {
 	my $class = shift;
-	my $self = bless { }, $class;
+	my $self = bless { last_text => '' }, $class;
 
 	POE::Session->create(
 		object_states => [
 			$self => [ qw(_start _default
-					serial_error text
+					serial_error rawtext
+					beep text
 					stream_start stream_stop) ],
 		],
 	);
@@ -622,9 +684,10 @@ sub _start {
 
 	$_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
 		Handle => serial_open($devasign),
+		# We want no transformation at all, duh.
 		Filter => POE::Filter::Block->new(
-			LengthCodec => [ \&as_encoder, \&as_decoder ],
-			),
+			LengthCodec => [ sub {}, sub {1}, ],
+		),
 		ErrorEvent => "serial_error",
 	) or die "Alphasign fail: $!";
 }
@@ -667,27 +730,28 @@ sub serial_error {
 	print "bye!\n";
 }
 
-sub as_encoder {
+sub encode {
 	my $stuff = shift;
-        $$stuff = "\x00" x 5   # packet sync characters
+        $stuff = "\x00" x 5   # packet sync characters
 	          . "\x01"     # start of header
 	          . "Z"        # all types
 	          . "00"       # broadcast address
 	          . "\x02"     # start of text
-	          . $$stuff    # raw data
+	          . $stuff    # raw data
 	          . "\x04";    # end of transmission
-	return;
 }
 
-sub as_decoder {
-	return 1; # XXX
-}
-
-# TODO: have text() a simple markup parser, and raw_text() for writing it out
-
-sub text {
+sub beep {
 	my ($heap, $mode, $string) = (@_[HEAP, ARG0, ARG1]);
-	print "out text: $mode, $string\n";
+	my $s = "E"  # special function
+	        . '('  # speaker tone
+	        . '0';  # beep for 2 seconds
+	$_[HEAP]{serial}->put(encode($s));
+}
+
+sub rawtext {
+	my ($heap, $mode, $string) = (@_[HEAP, ARG0, ARG1]);
+	print "out text: $mode, $string (".join('',map{sprintf'%02x',ord$_}split(//,$string)).")\n";
 	my $s = "A"          # text mode
 	        . "A"        # file label
 	        . "\x1B"     # start of text
@@ -695,20 +759,105 @@ sub text {
 	        . $mode      # display mode
 	        . "\x1C1"    # set default color = red
 	        . $string;   # text to display
-	$_[HEAP]{serial}->put($s);
+	# This crazy thing makes sure we do not write out the data in
+	# more than 32-byte chunks. The syswrites happen in 32-byte
+	# chunks and POE::Driver::SysRW is buggy when the write is short
+	# and the rest fails with EAGAIN - it tries to write out
+	# the whole original chunk again.
+	my @rs = split(//, encode($s));
+	while (@rs > 0) {
+		$_[HEAP]{serial}->put(join('', splice(@rs, 0, 32)));
+	}
 }
 
-#sub stream_switch {
-#	my ($s) = @_;
-#	system('~/alphasign/'.($s?'on':'off').'_air.py');
-#}
+our %modes;
+BEGIN {
+tie(%modes, 'Tie::IxHash',
+	'hold' => 'b',
+	'rotate' => 'a',
+	'flash' => 'c',
+	'roll_up' => 'd',
+	'roll_down' => 'f',
+	'roll_left' => 'g',
+	'roll_right' => 'h',
+	'wipe_up' => 'i',
+	'wipe_down' => 'j',
+	'wipe_left' => 'k',
+	'wipe_right' => 'l',
+	'random' => 'o',
+	'roll_in' => 'p',
+	'roll_out' => 'q',
+	'wipe_in' => 'r',
+	'wipe_out' => 's',
+	'compressed' => 't',
+	'twinkle' => 'n0',
+	'sparkle' => 'n1',
+	'snow' => 'n2',
+	'interlock' => 'n3',
+	'switch' => 'n4',
+	'slide' => 'n5',
+	'spray' => 'n6',
+	'starburst' => 'n7',
+	'welcome' => 'n8',
+	'slotmachine' => 'n9',
+	'thankyou' => 'nS',
+	'nosmoking' => 'nU',
+	'drink' => 'nV',
+	'animal' => 'nW',
+	'fireworks' => 'nX',
+	'turbocar' => 'nY',
+	'bomb' => 'nZ');
+}
+sub mode_list {
+	return keys %modes;
+}
+our %markup;
+BEGIN {
+tie(%markup, 'Tie::IxHash',
+	red => ["\x1C1", "\x1C1"],
+	green => ["\x1C2", "\x1C1"],
+	amber => ["\x1C3", "\x1C1"],
+	dimred => ["\x1C4", "\x1C1"],
+	dimgreen => ["\x1C5", "\x1C1"],
+	brown => ["\x1C6", "\x1C1"],
+	orange => ["\x1C7", "\x1C1"],
+	yellow => ["\x1C8", "\x1C1"],
+	rainbow1 => ["\x1C9", "\x1C1"],
+	rainbow2 => ["\x1CA", "\x1C1"],
+	colormix => ["\x1CB", "\x1C1"],
+	autocolor => ["\x1CC", "\x1C1"],
+	bold => ["\x1D01", "\x1D00"]);
+}
+sub markup_help {
+	"The following tags are available: ".join(', ', keys %markup)."\n".
+	"Example: <bold>bla<green>g</green></bold>bla";
+}
+
+sub text {
+	my ($heap, $self, $mode, $string) = (@_[HEAP, OBJECT, ARG0, ARG1]);
+	$mode = $modes{$mode};
+	$self->{last_text} = $string;
+	$string =~ s/<\/(.*?)>/$markup{$1}->[1]/gei;
+	$string =~ s/<(.*?)>/$markup{$1}->[0]/gei;
+	$_[KERNEL]->yield('rawtext', $mode, $string);
+}
+sub last_text {
+	my $self = shift;
+	return $self->{last_text};
+}
+sub last_text_escaped {
+	my $self = shift;
+	my $t = $self->last_text();
+	$t =~ s/&/\&amp;/g; $t =~ s/</\&lt;/g; $t =~ s/>/\&gt;/g;
+	return $t;
+}
 
 sub stream_start {
-	$_[KERNEL]->yield('text', 'b', "\x1D01ON AIR\x1D00");
+	$_[KERNEL]->yield('text', 'hold', "<green>ON AIR</green>");
 }
 
 sub stream_stop {
-	$_[KERNEL]->yield('text', 'b', "\x1D00OFF AIR\x1D00");
+	$_[KERNEL]->yield('text', 'hold', "<bold>OFF AIR</bold>");
 }
 
 1;
