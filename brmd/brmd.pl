@@ -837,6 +837,8 @@ sub text {
 	my ($heap, $self, $mode, $string) = (@_[HEAP, OBJECT, ARG0, ARG1]);
 	$mode = $modes{$mode};
 	$self->{last_text} = $string;
+	$string = substr($string, 0, 256);
+	$string =~ s/[\000-\037]//g;
 	$string =~ s/<\/(.*?)>/$markup{$1}->[1]/gei;
 	$string =~ s/<(.*?)>/$markup{$1}->[0]/gei;
 	$_[KERNEL]->yield('rawtext', $mode, $string);
