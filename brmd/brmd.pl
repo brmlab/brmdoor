@@ -433,6 +433,7 @@ sub web_alphasign_text {
 <strong>New text:</strong>
 <select name="mode">$modes</select>
 <input type="text" name="text" value="$text" />
+<input type="checkbox" name="beep" value="1" /> beep
 <input type="submit" name="s" value="Update" />
 </form>
 </p>
@@ -450,8 +451,12 @@ sub web_alphasign_set {
 	my $q = new CGI($request->content);
 	my $mode = $q->param('mode');
 	my $text = $q->param('text');
+	my $beep = $q->param('beep');
 
-	$streaming or $poe_kernel->post($alphasign, 'text', $mode, $text);
+	if (not $streaming) {
+		$poe_kernel->post($alphasign, 'text', $mode, $text);
+		$beep and $poe_kernel->post($alphasign, 'beep');
+	}
 
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
