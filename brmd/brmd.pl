@@ -862,6 +862,7 @@ sub last_text_escaped {
 
 sub stream_start {
 	$_[KERNEL]->yield('text', 'hold', "<green>ON AIR</green>");
+	$_[KERNEL]->yield('beep');
 }
 
 sub stream_stop {
