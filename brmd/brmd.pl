@@ -414,10 +414,11 @@ sub web_alphasign_text {
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
 	my $text = $alphasign->last_text_escaped();
+	my $lm = $alphasign->last_mode();
 	my $help = $alphasign->markup_help();
 	$help =~ s/&/&amp;/g; $help =~ s/</&lt;/g; $help =~ s/>/&gt;/g;
 	$help =~ s/\n/<br \/>/g;
-	my $modes = join("\n", map { "<option>$_</option>" } $alphasign->mode_list());
+	my $modes = join("\n", map { "<option".($lm eq $_?" selected":"").">$_</option>" } $alphasign->mode_list());
 
 	$response->content(<<EOT
 <html>
@@ -665,7 +666,7 @@ use Tie::IxHash;
 
 sub new {
 	my $class = shift;
-	my $self = bless { last_text => '' }, $class;
+	my $self = bless { last_text => '', last_mode => 'hold' }, $class;
 
 	POE::Session->create(
 		object_states => [
@@ -835,6 +836,7 @@ sub markup_help {
 
 sub text {
 	my ($heap, $self, $mode, $string) = (@_[HEAP, OBJECT, ARG0, ARG1]);
+	$self->{last_mode} = $mode;
 	$mode = $modes{$mode};
 	$self->{last_text} = $string;
 	$string = substr($string, 0, 256);
@@ -842,6 +844,10 @@ sub text {
 	$string =~ s/<\/(.*?)>/$markup{$1}->[1]/gei;
 	$string =~ s/<(.*?)>/$markup{$1}->[0]/gei;
 	$_[KERNEL]->yield('rawtext', $mode, $string);
+}
+sub last_mode {
+	my $self = shift;
+	return $self->{last_mode};
 }
 sub last_text {
 	my $self = shift;
