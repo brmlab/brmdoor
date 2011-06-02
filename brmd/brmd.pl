@@ -7,7 +7,7 @@ use warnings;
 use POE;
 
 our $channel = "#brmlab";
-our $streamurl = "http://nat.brmlab.cz:8090/brmstream.asf";
+our $streamurl = "http://video.hrach.eu:8090/brmstream.asf";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
 our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
