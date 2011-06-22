@@ -546,7 +546,6 @@ sub irc_public {
 	}
 
 	if ( my ($alpha) = $what =~ /^!alpha (.+)/ ) {
-		my $answer = '';
 		my $wa = WWW::WolframAlpha->new ( appid => 'P6XPHG-URK5HXVWXL', );
 		my $query = $wa->query( input => $alpha, );
 		if ($query->success) {
@@ -554,15 +553,16 @@ sub irc_public {
 				if (!$pod->error) {
 					foreach my $subpod (@{$pod->subpods}) {
 						if ($subpod->plaintext) {
+							my $answer = '';
 							$answer .= ($pod->title . ': ') if $pod->title;
 							$answer .= ($subpod->title . ': ') if $subpod->title;
-							$answer .= ($subpod->plaintext . "\n");
+							$answer .= $subpod->plaintext;
+							$irc->yield( privmsg => $channel => $answer );
 						}
 					}
 				}
 			}
 		}
-		$irc->yield( privmsg => $channel => $answer ) if $answer;
 	}
 }
 
