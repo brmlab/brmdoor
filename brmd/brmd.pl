@@ -554,9 +554,9 @@ sub irc_public {
 				if (!$pod->error) {
 					foreach my $subpod (@{$pod->subpods}) {
 						if ($subpod->plaintext) {
-							$answer += ($pod->title . ': ') if $pod->title;
-							$answer += ($subpod->title . ': ') if $subpod->title;
-							$answer += ($subpod->plaintext . "\n");
+							$answer .= ($pod->title . ': ') if $pod->title;
+							$answer .= ($subpod->title . ': ') if $subpod->title;
+							$answer .= ($subpod->plaintext . "\n");
 						}
 					}
 				}
