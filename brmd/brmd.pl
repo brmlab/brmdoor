@@ -1,10 +1,12 @@
 #!/usr/bin/perl
 # 2011 (c)  Petr Baudis <pasky@suse.cz>, brmlab
+# 2011 (c)  Pavol Rusnak <stick@gk2.sk>, brmlab
 # You can distribute this under the same terms as Perl itself.
 
 use strict;
 use warnings;
 use POE;
+use WWW::WolframAlpha;
 
 our $channel = "#brmlab";
 our $streamurl = "http://video.hrach.eu:8090/brmstream.asf";
@@ -538,9 +540,29 @@ sub irc_public {
 	my $nick = ( split /!/, $who )[0];
 	my $channel = $where->[0];
 
-	if ( my ($rot13) = $what =~ /^rot13 (.+)/ ) {
+	if ( my ($rot13) = $what =~ /^!rot13 (.+)/ ) {
 		$rot13 =~ tr[a-zA-Z][n-za-mN-ZA-M];
 		$irc->yield( privmsg => $channel => "$nick: $rot13" );
+	}
+
+	if ( my ($alpha) = $what =~ /^!alpha (.+)/ ) {
+		my $answer = '';
+		my $wa = WWW::WolframAlpha->new ( appid => 'P6XPHG-URK5HXVWXL', );
+		my $query = $wa->query( input => $alpha, );
+		if ($query->success) {
+			foreach my $pod (@{$query->pods}) {
+				if (!$pod->error) {
+					foreach my $subpod (@{$pod->subpods}) {
+						if ($subpod->plaintext) {
+							$answer += ($pod->title . ': ') if $pod->title;
+							$answer += ($subpod->title . ': ') if $subpod->title;
+							$answer += ($subpod->plaintext . "\n");
+						}
+					}
+				}
+			}
+		}
+		$irc->yield( privmsg => $channel => $answer ) if $answer;
 	}
 }
 
