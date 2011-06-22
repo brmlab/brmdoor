@@ -554,9 +554,10 @@ sub irc_public {
 					foreach my $subpod (@{$pod->subpods}) {
 						if ($subpod->plaintext) {
 							my $answer = '';
-							$answer .= ($pod->title . ' - ') if $pod->title;
-							$answer .= ($subpod->title . ' - ') if $subpod->title;
+							$answer .= ($pod->title . ': ') if $pod->title;
+							$answer .= ($subpod->title . ': ') if $subpod->title;
 							$answer .= $subpod->plaintext;
+							$answer =~ s/\n/, /g;
 							$irc->yield( privmsg => $channel => "$nick: $answer" );
 						}
 					}
