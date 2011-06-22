@@ -557,7 +557,7 @@ sub irc_public {
 							$answer .= ($pod->title . ': ') if $pod->title;
 							$answer .= ($subpod->title . ': ') if $subpod->title;
 							$answer .= $subpod->plaintext;
-							$irc->yield( privmsg => $channel => $answer );
+							$irc->yield( privmsg => $channel => "$nick: $answer" );
 						}
 					}
 				}
