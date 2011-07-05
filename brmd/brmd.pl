@@ -286,7 +286,7 @@ sub web_index {
 
 	my $astext = $alphasign->last_text_escaped();
 	my $a_link = '';
-	$streaming or $a_link .= '<a href="alphasign">change</a>';
+	$a_link .= '<a href="alphasign">change</a>';
 
 	$response->content(<<EOT
 <html>
@@ -455,10 +455,8 @@ sub web_alphasign_set {
 	my $text = $q->param('text');
 	my $beep = $q->param('beep');
 
-	if (not $streaming) {
-		$poe_kernel->post($alphasign, 'text', $mode, $text);
-		$beep and $poe_kernel->post($alphasign, 'beep');
-	}
+	$poe_kernel->post($alphasign, 'text', $mode, $text);
+	$beep and $poe_kernel->post($alphasign, 'beep');
 
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
