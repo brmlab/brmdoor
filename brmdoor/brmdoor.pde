@@ -142,7 +142,7 @@ void readCard()
     if (!known) {
       comSerial.write("CARD UNKNOWN ");
       for (int i = 0; i < 7; ++i) {
-        if (buf[i+3] < 0xF) comSerial.write("0");
+        if (buf[i+3] <= 0xF) comSerial.write("0");
         comSerial.print(buf[i+3], HEX);
       }
       comSerial.write("\n");
