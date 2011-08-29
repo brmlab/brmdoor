@@ -473,6 +473,7 @@ sub web_alphasign_set {
 package brmd::IRC;
 
 use POE qw(Component::IRC Component::IRC::Plugin::Connector);
+use URI;
 
 sub new {
 	my $class = shift;
@@ -549,20 +550,35 @@ sub irc_public {
 		my $wa = WWW::WolframAlpha->new ( appid => 'P6XPHG-URK5HXVWXL', );
 		my $query = $wa->query( input => $alpha, );
 		if ($query->success) {
-			foreach my $pod (@{$query->pods}) {
+			my $first = 1;
+			my $npods = 3;
+			foreach my $pod (@{$query->pods}[0..$npods-1]) {
+				$pod or next;
 				if (!$pod->error) {
+					my @answers;
+					push @answers, $pod->title if $pod->title;
 					foreach my $subpod (@{$pod->subpods}) {
 						if ($subpod->plaintext) {
-							my $answer = '';
-							$answer .= ($pod->title . ': ') if $pod->title;
-							$answer .= ($subpod->title . ': ') if $subpod->title;
-							$answer .= $subpod->plaintext;
-							$answer =~ s/\n/, /g;
-							$irc->yield( privmsg => $channel => "$nick: $answer" );
+							my $sanswer = '';
+							$sanswer .= ($subpod->title . ': ') if $subpod->title;
+							$sanswer .= $subpod->plaintext;
+							push @answers, split (/\n+/, $sanswer);
 						}
 					}
+					if ($first) {
+						my $sanswer = URI->new("http://www.wolframalpha.com/input/?i=$alpha")->as_string;
+						$sanswer .= " (trimmed)" if (@{$query->pods} > $npods);
+						push @answers, $sanswer;
+						$first = 0;
+					}
+					my $answer = join(" \3"."14::\3 ", @answers);
+					$irc->yield( privmsg => $channel => "$nick: $answer" );
+				} else {
+					$irc->yield( privmsg => $channel => "$nick: Error " . $pod->error->code . ": " . $pod->error->msg );
 				}
 			}
+		} else {
+			$irc->yield( privmsg => $channel => "$nick: No results." );
 		}
 	}
 }
