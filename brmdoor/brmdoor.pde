@@ -159,8 +159,8 @@ void readSerial()
     unsigned char cmd = comSerial.read();
     unsigned char data = comSerial.read();
     switch (cmd) {
-      case 's': statusState = data; statusStateOverride = 1; break;
-      case 'v': videoState = data; videoStateOverride = 1; break;
+      case 's': statusState = data - '0'; statusStateOverride = 1; break;
+      case 'v': videoState = data - '0'; videoStateOverride = 1; break;
     }
   }
 }
