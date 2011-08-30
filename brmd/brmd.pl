@@ -815,7 +815,7 @@ sub rawtext {
 	}
 }
 
-our %modes;
+my %modes;
 BEGIN {
 tie(%modes, 'Tie::IxHash',
 	'hold' => 'b',
@@ -856,7 +856,7 @@ tie(%modes, 'Tie::IxHash',
 sub mode_list {
 	return keys %modes;
 }
-our %markup;
+my %markup;
 BEGIN {
 tie(%markup, 'Tie::IxHash',
 	red => ["\x1C1", "\x1C1"],
