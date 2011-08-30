@@ -116,7 +116,7 @@ sub _start {
 		Handle => serial_open($devdoor),
 		Filter => POE::Filter::Line->new(
 			InputLiteral  => "\x0A",    # Received line endings.
-			OutputLiteral => "\x0A",    # Sent line endings.
+			OutputLiteral => "",    # Sent line endings.
 			),
 		InputEvent => "serial_input",
 		ErrorEvent => "serial_error",
@@ -396,7 +396,7 @@ sub web_brmstatus_switch {
 	my $q = new CGI($request->content);
 	my $nick = $q->param('nick');
 
-	my $newstatus = not $status;
+	my $newstatus = 0 + not $status;
 	foreach (@{$self->{observers}}) {
 		$poe_kernel->post($_, 'status_update', $newstatus, 'web', $nick);
 	}
