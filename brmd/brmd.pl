@@ -140,7 +140,7 @@ sub new {
 		object_states => [
 			$self => [ qw(_start _default register
 					serial_input serial_error
-					status_override) ],
+					status_override play_alarm) ],
 		],
 	);
 
@@ -243,6 +243,13 @@ sub status_override {
 	my ($heap, $status) = @_[HEAP, ARG0];
 	my $serial = $heap->{serial};
 	$serial->put('s'.$status);
+	$serial->flush();
+}
+
+sub play_alarm {
+	my ($heap) = $_[HEAP];
+	my $serial = $heap->{serial};
+	$serial->put('a0');
 	$serial->flush();
 }
 
