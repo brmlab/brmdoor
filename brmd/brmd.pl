@@ -96,7 +96,15 @@ sub dooropen_update {
 	my ($self, $newdooropen) = @_[OBJECT, ARG0];
 	$dooropen = $newdooropen;
 	my $st = dooropen_str();
-	$poe_kernel->post( $irc, 'notify_door_open', $st );
+
+	my $closed_timeout = 60;
+	my $unlock_timeout = 30;
+	my $alert = ($dooropen == 1 and $status == 0 and time - $lastunlock >= $unlock_timeout);
+	if ($alert) {
+		$poe_kernel->post($door, 'play_alarm');
+	}
+
+	$poe_kernel->post( $irc, 'notify_door_open', $st, $alert );
 }
 
 sub notify_door_unlocked {
@@ -681,15 +689,10 @@ sub notify_door_unlocked {
 }
 
 sub notify_door_open {
-	my ($sender, $newstate) = @_[SENDER, ARG0];
+	my ($sender, $newstate, $alert) = @_[SENDER, ARG0, ARG1];
 	my $irc = $_[HEAP]->{irc};
-	my $msg;
-	my $unlock_timeout = 30;
-	if ($dooropen == 1 and $status == 0 and time - $lastunlock >= $unlock_timeout) {
-		$msg = "[door] $newstate \002(alert: closed brmlab, door opened, unlocked before more than $unlock_timeout seconds)";
-	} else {
-		$msg = "[door] $newstate";
-	}
+	my $msg = "[door] $newstate";
+	$alert and $msg .= " \002(alert: closed brmlab, door opened, not unlocked)";
 	$irc->yield (privmsg => $channel => $msg );
 }
 
