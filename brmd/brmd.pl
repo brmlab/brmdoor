@@ -90,7 +90,7 @@ sub streaming_update {
 sub notify_door_unlocked {
 	my ($self, $nick) = @_[OBJECT, ARG0];
 
-	$poe_kernel->post($irc, 'notify_door_unlocked', $nick);
+	$poe_kernel->post($irc, 'notify_door_unlocked');
 	$poe_kernel->post($log, 'notify_door_unlocked', $nick);
 }
 
@@ -655,9 +655,9 @@ sub notify_door_unauth {
 }
 
 sub notify_door_unlocked {
-	my ($sender, $nick) = @_[SENDER, ARG0];
+	my ($sender) = @_[SENDER, ARG0];
 	my $irc = $_[HEAP]->{irc};
-	my $msg = "[door] unlocked by: \002$nick";
+	my $msg = "[door] unlocked";
 	$irc->yield (privmsg => $channel => $msg );
 }
 
