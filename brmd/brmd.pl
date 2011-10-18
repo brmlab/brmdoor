@@ -24,7 +24,8 @@ my $alphasign = brmd::Alphasign->new();
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start
-				status_update streaming_update) ],
+				status_update streaming_update
+				notify_door_unlocked notify_door_unauth) ],
 	],
 	heap => { irc => $irc, web => $web, door => $door, stream => $stream, alphasign => $alphasign },
 );
@@ -83,6 +84,18 @@ sub streaming_update {
 
 	my $st = streaming_str();
 	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $streaming ? $streamurl : undef );
+}
+
+sub notify_door_unlocked {
+	my ($self, $nick) = @_[OBJECT, ARG0];
+
+	$poe_kernel->post($irc, 'notify_door_unlocked', $nick);
+}
+
+sub notify_door_unauth {
+	my ($self, $cardid) = @_[OBJECT, ARG0];
+
+	$poe_kernel->post($irc, 'notify_door_unauth');
 }
 
 
@@ -179,9 +192,13 @@ sub serial_input {
 	if ($brm =~ s/^CARD //) {
 		print "from door: $input\n";
 		if ($brm =~ s/^UNKNOWN //) {
-			$poe_kernel->post($irc, 'notify_door_unauth', $brm);
+			foreach (@{$self->{observers}}) {
+				$poe_kernel->post($_, 'notify_door_unauth', $brm);
+			}
 		} else {
-			$poe_kernel->post( $irc, 'notify_door_unlocked', $brm );
+			foreach (@{$self->{observers}}) {
+				$poe_kernel->post($_, 'notify_door_unlocked', $brm);
+			}
 		}
 	}
 }
@@ -628,7 +645,7 @@ sub notify_update {
 }
 
 sub notify_door_unauth {
-	my ($sender, $cardid) = @_[SENDER, ARG0];
+	my ($sender) = $_[SENDER];
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] unauthorized access denied!";
 	$irc->yield (privmsg => $channel => $msg );
