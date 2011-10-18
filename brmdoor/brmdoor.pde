@@ -44,6 +44,9 @@ int noteDurations_nak[] = { 330, 330, 330, 250, 120, 330, 250, 120, 500 };
 int melody_ack[] = { NOTE_D6, NOTE_A6, NOTE_C7, NOTE_A6 };
 int noteDurations_ack[] = { 120, 500, 120, 500 };
 
+int melody_alarm[] = { NOTE_D6, NOTE_F6, NOTE_D6, NOTE_F6 };
+int noteDurations_alarm[] = { 700, 700, 700, 700 };
+
 void toneManual(int pin, int frequency, int duration)
 {
   unsigned long period = 1000000/frequency;
@@ -60,27 +63,32 @@ void toneManual(int pin, int frequency, int duration)
   }
 }
 
-void playMelody(int *melody, int *noteDurations, int notes)
+void playMelody(int *melody, int *noteDurations, int dcoef, int notes)
 {
   int i;
   for (i = 0; i < notes; i++) {
     // comSerial.print(melody[i]); comSerial.write(" "); comSerial.print(noteDurations[i]); comSerial.write("\n");
     toneManual(soundPin, melody[i], noteDurations[i]);
 
-    delay(noteDurations[i] * 6/10);
+    delay(noteDurations[i] * dcoef/10);
   }
 }
 
 void playMelodyAck()
-{ playMelody(melody_ack, noteDurations_ack, sizeof(melody_ack)/sizeof(melody_ack[0])); }
+{ playMelody(melody_ack, noteDurations_ack, 6, sizeof(melody_ack)/sizeof(melody_ack[0])); }
 void playMelodyNak()
-{ playMelody(melody_nak, noteDurations_nak, sizeof(melody_nak)/sizeof(melody_nak[0])); }
+{ playMelody(melody_nak, noteDurations_nak, 6, sizeof(melody_nak)/sizeof(melody_nak[0])); }
+void playMelodyAlarm()
+{ playMelody(melody_alarm, noteDurations_alarm, 1, sizeof(melody_alarm)/sizeof(melody_alarm[0])); }
+
 
 #else
 
 void playMelodyAck()
 {}
 void playMelodyNak()
+{}
+void playMelodyAlarm()
 {}
 
 #endif
@@ -163,6 +171,7 @@ void readSerial()
     switch (cmd) {
       case 's': statusState = data - '0'; statusStateOverride = 1; break;
       case 'v': videoState = data - '0'; videoStateOverride = 1; break;
+      case 'a': playMelodyAlarm(); /* data ignored */ break;
     }
   }
 }
