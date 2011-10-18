@@ -18,6 +18,7 @@ my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
 my $door = brmd::Door->new();
 my $stream = brmd::Stream->new();
+my $log = brmd::Log->new();
 my $alphasign = brmd::Alphasign->new();
 
 
@@ -27,7 +28,7 @@ POE::Session->create(
 				status_update streaming_update
 				notify_door_unlocked notify_door_unauth) ],
 	],
-	heap => { irc => $irc, web => $web, door => $door, stream => $stream, alphasign => $alphasign },
+	heap => { irc => $irc, web => $web, door => $door, stream => $stream, log => $log, alphasign => $alphasign },
 );
 
 $poe_kernel->run();
@@ -90,12 +91,14 @@ sub notify_door_unlocked {
 	my ($self, $nick) = @_[OBJECT, ARG0];
 
 	$poe_kernel->post($irc, 'notify_door_unlocked', $nick);
+	$poe_kernel->post($log, 'notify_door_unlocked', $nick);
 }
 
 sub notify_door_unauth {
 	my ($self, $cardid) = @_[OBJECT, ARG0];
 
 	$poe_kernel->post($irc, 'notify_door_unauth');
+	$poe_kernel->post($log, 'notify_door_unauth', $cardid);
 }
 
 
@@ -711,6 +714,60 @@ sub stream_start {
 
 sub stream_stop {
 	stream_switch(0);
+}
+
+1;
+
+
+## Logging
+
+package brmd::Log;
+
+use POE;
+use Logger::Syslog;
+
+sub new {
+	my $class = shift;
+	my $self = bless { }, $class;
+
+	POE::Session->create(
+		object_states => [
+			$self => [ qw(_start _default
+					notify_door_unauth notify_door_unlocked) ],
+		],
+	);
+
+	return $self;
+}
+
+sub _start {
+	$_[KERNEL]->alias_set("$_[OBJECT]");
+	$poe_kernel->post($door, 'register');
+}
+
+sub _default {
+	my ($event, $args) = @_[ARG0 .. $#_];
+	my @output = ( (scalar localtime), "Log $event: " );
+
+	for my $arg (@$args) {
+		if ( ref $arg eq 'ARRAY' ) {
+			push( @output, '[' . join(', ', @$arg ) . ']' );
+		}
+		else {
+			push( @output, "'$arg'" );
+		}
+	}
+	print join ' ', @output, "\n";
+}
+
+sub notify_door_unauth {
+	my ($sender, $cardid) = @_[SENDER, ARG0];
+	error ("[door] unauthorized access denied for card " . $cardid);
+}
+
+sub notify_door_unlocked {
+	my ($sender, $nick) = @_[SENDER, ARG0];
+	info ("[door] unlocked by " . $nick);
 }
 
 1;
