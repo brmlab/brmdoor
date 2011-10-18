@@ -149,9 +149,10 @@ void readCard()
       comSerial.write("\n");
       playMelodyNak();
     }
+  } else {
+    // make cycle interval 1s
+    delay(750);
   }
-  // make cycle interval 1s
-  delay(750);
 }
 
 void readSerial()
