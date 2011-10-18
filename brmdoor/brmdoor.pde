@@ -5,6 +5,7 @@
 #include "NewSoftSerial.h"
 
 // pins
+const int magnetPin = 10;
 const int soundPin = 9; /* piezo in series with 100R */
 const int statusLed = 8;
 const int statusBtn = 7;
@@ -167,6 +168,8 @@ void readSerial()
 
 void setup()
 {
+  pinMode(magnetPin, INPUT);
+  digitalWrite(magnetPin, HIGH);
   pinMode(doorLock, OUTPUT);
   pinMode(soundPin, OUTPUT);
   pinMode(statusLed, OUTPUT);
@@ -190,11 +193,14 @@ void loop()
   /* Update state based on buttons and override. */
   if (!statusStateOverride) statusState = statusStateNew;
   if (!videoStateOverride) videoState = videoStateNew;
+  
+  int doorOpen = digitalRead(magnetPin);
 
   digitalWrite(statusLed, !statusState); // will be turned back in readCard()
   digitalWrite(videoLed, videoState);
   comSerial.print(statusState, DEC); comSerial.write(" ");
   comSerial.print(videoState, DEC); comSerial.write(" ");
+  comSerial.print(doorOpen, DEC); comSerial.write(" ");
   readCard();
   readSerial();
 }

@@ -12,7 +12,8 @@ our $channel = "#brmlab";
 our $streamurl = "http://brmlab.cz/stream";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
-our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
+our ($status, $streaming, $dooropen, $topic) = (0, 0, 0, 'BRMLAB OPEN');
+our $lastunlock = 0;
 
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
@@ -25,7 +26,7 @@ my $alphasign = brmd::Alphasign->new();
 POE::Session->create(
 	package_states => [
 		main => [ qw(_default _start
-				status_update streaming_update
+				status_update streaming_update dooropen_update
 				notify_door_unlocked notify_door_unauth) ],
 	],
 	heap => { irc => $irc, web => $web, door => $door, stream => $stream, log => $log, alphasign => $alphasign },
@@ -58,6 +59,10 @@ sub status_str {
 	$status ? 'OPEN' : 'CLOSED';
 }
 
+sub dooropen_str {
+	$dooropen ? 'AJAR' : 'SHUT';
+}
+
 sub streaming_str {
 	$streaming ? 'ON AIR' : 'OFF AIR';
 }
@@ -87,11 +92,20 @@ sub streaming_update {
 	$poe_kernel->post( $irc, 'notify_update', 'brmvideo', $st, $streaming ? $streamurl : undef );
 }
 
+sub dooropen_update {
+	my ($self, $newdooropen) = @_[OBJECT, ARG0];
+	$dooropen = $newdooropen;
+	my $st = dooropen_str();
+	$poe_kernel->post( $irc, 'notify_door_open', $st );
+}
+
 sub notify_door_unlocked {
 	my ($self, $nick) = @_[OBJECT, ARG0];
 
 	$poe_kernel->post($irc, 'notify_door_unlocked');
 	$poe_kernel->post($log, 'notify_door_unlocked', $nick);
+
+	$lastunlock = time;
 }
 
 sub notify_door_unauth {
@@ -180,8 +194,8 @@ sub serial_open {
 sub serial_input {
 	my ($self, $input) = @_[OBJECT, ARG0];
 	print ((scalar localtime)." $input\n");
-	$input =~ /^(\d) (\d) (.*)$/ or return;
-	my ($cur_status, $cur_streaming, $brm) = ($1, $2, $3);
+	$input =~ /^(\d) (\d) (\d) (.*)$/ or return;
+	my ($cur_status, $cur_streaming, $cur_dooropen, $brm) = ($1, $2, $3, $4);
 	if ($cur_status != $status) {
 		foreach (@{$self->{observers}}) {
 			$poe_kernel->post($_, 'status_update', $cur_status);
@@ -202,6 +216,11 @@ sub serial_input {
 			foreach (@{$self->{observers}}) {
 				$poe_kernel->post($_, 'notify_door_unlocked', $brm);
 			}
+		}
+	}
+	if ($cur_dooropen != $dooropen) {
+		foreach (@{$self->{observers}}) {
+			$poe_kernel->post($_, 'dooropen_update', $cur_dooropen);
 		}
 	}
 }
@@ -511,7 +530,7 @@ sub new {
 			$self => [ qw(_start _default
 					irc_001 irc_public irc_332 irc_topic
 					notify_update
-					notify_door_unauth notify_door_unlocked) ],
+					notify_door_unauth notify_door_unlocked notify_door_open) ],
 		],
 		heap => { irc => $irc, connector => $connector },
 	);
@@ -658,6 +677,19 @@ sub notify_door_unlocked {
 	my ($sender) = @_[SENDER, ARG0];
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] unlocked";
+	$irc->yield (privmsg => $channel => $msg );
+}
+
+sub notify_door_open {
+	my ($sender, $newstate) = @_[SENDER, ARG0];
+	my $irc = $_[HEAP]->{irc};
+	my $msg;
+	my $unlock_timeout = 30;
+	if ($dooropen == 1 and $status == 0 and time - $lastunlock >= $unlock_timeout) {
+		$msg = "[door] $newstate \002(alert: closed brmlab, door opened, unlocked before more than $unlock_timeout seconds)";
+	} else {
+		$msg = "[door] $newstate";
+	}
 	$irc->yield (privmsg => $channel => $msg );
 }
 
