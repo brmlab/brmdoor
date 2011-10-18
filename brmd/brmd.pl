@@ -178,8 +178,8 @@ sub serial_input {
 	}
 	if ($brm =~ s/^CARD //) {
 		print "from door: $input\n";
-		if ($brm =~ /^UNKNOWN/) {
-			$poe_kernel->post( $irc, 'notify_door_unauth' );
+		if ($brm =~ s/^UNKNOWN //) {
+			$poe_kernel->post($irc, 'notify_door_unauth', $brm);
 		} else {
 			$poe_kernel->post( $irc, 'notify_door_unlocked', $brm );
 		}
@@ -628,7 +628,7 @@ sub notify_update {
 }
 
 sub notify_door_unauth {
-	my ($sender) = $_[SENDER];
+	my ($sender, $cardid) = @_[SENDER, ARG0];
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] unauthorized access denied!";
 	$irc->yield (privmsg => $channel => $msg );
