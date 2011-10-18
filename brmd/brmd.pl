@@ -647,7 +647,7 @@ sub notify_update {
 sub notify_door_unauth {
 	my ($sender) = $_[SENDER];
 	my $irc = $_[HEAP]->{irc};
-	my $msg = "[door] unauthorized access denied!";
+	my $msg = "[door] \002unauthorized access\002 denied!";
 	$irc->yield (privmsg => $channel => $msg );
 }
 
