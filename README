@@ -1,1 +1,8 @@
-Brmdoor control software
+=== Brmdoor control software ===
+
+brmd/ - integration hub that collects data from various sources and provides unified reporting on IRC and web etc.
+
+brmdoor/ - Arduino software
+
+
+Project webpage: http://brmlab.cz/project/brmdoor

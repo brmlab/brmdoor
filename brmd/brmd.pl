@@ -1,13 +1,15 @@
 #!/usr/bin/perl
 # 2011 (c)  Petr Baudis <pasky@suse.cz>, brmlab
+# 2011 (c)  Pavol Rusnak <stick@gk2.sk>, brmlab
 # You can distribute this under the same terms as Perl itself.
 
 use strict;
 use warnings;
 use POE;
+use WWW::WolframAlpha;
 
 our $channel = "#brmlab";
-our $streamurl = "http://video.hrach.eu:8090/brmstream.asf";
+our $streamurl = "http://brmlab.cz/stream";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
 our ($status, $streaming, $topic) = (0, 0, 'BRMLAB OPEN');
@@ -114,7 +116,7 @@ sub _start {
 		Handle => serial_open($devdoor),
 		Filter => POE::Filter::Line->new(
 			InputLiteral  => "\x0A",    # Received line endings.
-			OutputLiteral => "\x0A",    # Sent line endings.
+			OutputLiteral => "",    # Sent line endings.
 			),
 		InputEvent => "serial_input",
 		ErrorEvent => "serial_error",
@@ -394,7 +396,7 @@ sub web_brmstatus_switch {
 	my $q = new CGI($request->content);
 	my $nick = $q->param('nick');
 
-	my $newstatus = not $status;
+	my $newstatus = 0 + not $status;
 	foreach (@{$self->{observers}}) {
 		$poe_kernel->post($_, 'status_update', $newstatus, 'web', $nick);
 	}
@@ -414,10 +416,11 @@ sub web_alphasign_text {
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
 	my $text = $alphasign->last_text_escaped();
+	my $lm = $alphasign->last_mode();
 	my $help = $alphasign->markup_help();
 	$help =~ s/&/&amp;/g; $help =~ s/</&lt;/g; $help =~ s/>/&gt;/g;
 	$help =~ s/\n/<br \/>/g;
-	my $modes = join("\n", map { "<option>$_</option>" } $alphasign->mode_list());
+	my $modes = join("\n", map { "<option".($lm eq $_?" selected":"").">$_</option>" } $alphasign->mode_list());
 
 	$response->content(<<EOT
 <html>
@@ -432,6 +435,7 @@ sub web_alphasign_text {
 <strong>New text:</strong>
 <select name="mode">$modes</select>
 <input type="text" name="text" value="$text" />
+<input type="checkbox" name="beep" value="1" /> beep
 <input type="submit" name="s" value="Update" />
 </form>
 </p>
@@ -449,8 +453,12 @@ sub web_alphasign_set {
 	my $q = new CGI($request->content);
 	my $mode = $q->param('mode');
 	my $text = $q->param('text');
+	my $beep = $q->param('beep');
 
-	$streaming or $poe_kernel->post($alphasign, 'text', $mode, $text);
+	if (not $streaming) {
+		$poe_kernel->post($alphasign, 'text', $mode, $text);
+		$beep and $poe_kernel->post($alphasign, 'beep');
+	}
 
 	$response->protocol("HTTP/1.1");
 	$response->code(302);
@@ -465,6 +473,7 @@ sub web_alphasign_set {
 package brmd::IRC;
 
 use POE qw(Component::IRC Component::IRC::Plugin::Connector);
+use URI;
 
 sub new {
 	my $class = shift;
@@ -532,9 +541,45 @@ sub irc_public {
 	my $nick = ( split /!/, $who )[0];
 	my $channel = $where->[0];
 
-	if ( my ($rot13) = $what =~ /^rot13 (.+)/ ) {
+	if ( my ($rot13) = $what =~ /^!rot13 (.+)/ ) {
 		$rot13 =~ tr[a-zA-Z][n-za-mN-ZA-M];
 		$irc->yield( privmsg => $channel => "$nick: $rot13" );
+	}
+
+	if ( my ($alpha) = $what =~ /^!alpha (.+)/ ) {
+		my $wa = WWW::WolframAlpha->new ( appid => 'P6XPHG-URK5HXVWXL', );
+		my $query = $wa->query( input => $alpha, );
+		if ($query->success) {
+			my $first = 1;
+			my $npods = 3;
+			foreach my $pod (@{$query->pods}[0..$npods-1]) {
+				$pod or next;
+				if (!$pod->error) {
+					my @answers;
+					push @answers, $pod->title if $pod->title;
+					foreach my $subpod (@{$pod->subpods}) {
+						if ($subpod->plaintext) {
+							my $sanswer = '';
+							$sanswer .= ($subpod->title . ': ') if $subpod->title;
+							$sanswer .= $subpod->plaintext;
+							push @answers, split (/\n+/, $sanswer);
+						}
+					}
+					if ($first) {
+						my $sanswer = URI->new("http://www.wolframalpha.com/input/?i=$alpha")->as_string;
+						$sanswer .= " (trimmed)" if (@{$query->pods} > $npods);
+						push @answers, $sanswer;
+						$first = 0;
+					}
+					my $answer = join(" \3"."14::\3 ", @answers);
+					$irc->yield( privmsg => $channel => "$nick: $answer" );
+				} else {
+					$irc->yield( privmsg => $channel => "$nick: Error " . $pod->error->code . ": " . $pod->error->msg );
+				}
+			}
+		} else {
+			$irc->yield( privmsg => $channel => "$nick: No results." );
+		}
 	}
 }
 
@@ -665,7 +710,7 @@ use Tie::IxHash;
 
 sub new {
 	my $class = shift;
-	my $self = bless { last_text => '' }, $class;
+	my $self = bless { last_text => '', last_mode => 'hold' }, $class;
 
 	POE::Session->create(
 		object_states => [
@@ -770,7 +815,7 @@ sub rawtext {
 	}
 }
 
-our %modes;
+my %modes;
 BEGIN {
 tie(%modes, 'Tie::IxHash',
 	'hold' => 'b',
@@ -811,7 +856,7 @@ tie(%modes, 'Tie::IxHash',
 sub mode_list {
 	return keys %modes;
 }
-our %markup;
+my %markup;
 BEGIN {
 tie(%markup, 'Tie::IxHash',
 	red => ["\x1C1", "\x1C1"],
@@ -835,11 +880,18 @@ sub markup_help {
 
 sub text {
 	my ($heap, $self, $mode, $string) = (@_[HEAP, OBJECT, ARG0, ARG1]);
+	$self->{last_mode} = $mode;
 	$mode = $modes{$mode};
 	$self->{last_text} = $string;
+	$string = substr($string, 0, 256);
+	$string =~ s/[\000-\037]//g;
 	$string =~ s/<\/(.*?)>/$markup{$1}->[1]/gei;
 	$string =~ s/<(.*?)>/$markup{$1}->[0]/gei;
 	$_[KERNEL]->yield('rawtext', $mode, $string);
+}
+sub last_mode {
+	my $self = shift;
+	return $self->{last_mode};
 }
 sub last_text {
 	my $self = shift;
@@ -854,6 +906,7 @@ sub last_text_escaped {
 
 sub stream_start {
 	$_[KERNEL]->yield('text', 'hold', "<green>ON AIR</green>");
+	$_[KERNEL]->yield('beep');
 }
 
 sub stream_stop {
