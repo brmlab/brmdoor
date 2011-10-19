@@ -749,7 +749,7 @@ sub _default {
 
 sub stream_switch {
 	my ($s) = @_;
-	system('ssh brmstream@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
+	system('ssh brmlab@brmvid "echo '.($s?'START':'STOP').' >/tmp/brmstream"');
 }
 
 sub stream_start {
