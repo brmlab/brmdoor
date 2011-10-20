@@ -814,6 +814,12 @@ sub notify_door_unlocked {
 	info ("[door] unlocked by " . $nick);
 }
 
+sub notify_door_open {
+	my ($sender, $newstate, $alert) = @_[SENDER, ARG0, ARG1];
+
+	info ("[door] $newstate (alert $alert)");
+}
+
 1;
 
 
