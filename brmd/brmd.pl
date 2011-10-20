@@ -699,9 +699,10 @@ sub notify_door_unlocked {
 
 sub notify_door_open {
 	my ($sender, $newstate, $alert) = @_[SENDER, ARG0, ARG1];
+	$alert or return;
+
 	my $irc = $_[HEAP]->{irc};
-	my $msg = "[door] $newstate";
-	$alert and $msg .= " \002(alert: closed brmlab, door opened, not unlocked)";
+	my $msg = "[door] $newstate \002(alert: closed brmlab, door opened, not unlocked)";
 	$irc->yield (privmsg => $channel => $msg );
 }
 
