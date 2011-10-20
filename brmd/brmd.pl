@@ -14,6 +14,7 @@ our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UAR
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
 our ($status, $streaming, $dooropen, $topic) = (0, 0, 0, 'BRMLAB OPEN');
 our ($laststchange, $lastunlock) = (0, 0);
+our $stmanual = 0;
 
 my $irc = brmd::IRC->new();
 my $web = brmd::WWW->new();
@@ -71,6 +72,7 @@ sub status_update {
 	my ($self, $newstatus, $manual, $nick) = @_[OBJECT, ARG0 .. ARG2];
 	$status = $newstatus;
 	my $st = status_str();
+	$stmanual = $manual;
 
 	if ($manual) {
 		$poe_kernel->post($door, 'status_override', $status);
@@ -101,7 +103,7 @@ sub dooropen_update {
 
 	my $closed_timeout = 60;
 	my $unlock_timeout = 30;
-	my $alert = ($dooropen == 1 and $status == 0 and time - $laststchange >= $closed_timeout and time - $lastunlock >= $unlock_timeout);
+	my $alert = ($dooropen == 1 and ($status == 0 or $stmanual) and time - $laststchange >= $closed_timeout and time - $lastunlock >= $unlock_timeout);
 	if ($alert) {
 		$poe_kernel->post($door, 'play_alarm');
 	}
