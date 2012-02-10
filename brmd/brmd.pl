@@ -8,7 +8,7 @@ use warnings;
 use POE;
 use WWW::WolframAlpha;
 
-our $channel = "#brmlab";
+our @channels = ("#brmlab", "#brmstatus");
 our $streamurl = "http://brmlab.cz/stream";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
@@ -197,7 +197,7 @@ sub serial_open {
 	$port->baudrate(9600);
 	$port->databits(8);
 	$port->parity("none");
-	$port->stopbits(1);
+	$port->stopbits(2);
 	$port->handshake("none");
 	$port->write_settings();
 	return $handle;
@@ -590,7 +590,7 @@ sub irc_001 {
 
 	print "Connected to ", $irc->server_name(), "\n";
 
-	$irc->yield( join => $channel );
+	$irc->yield( join => $_ ) for @channels;
 }
 
 sub irc_public {
@@ -671,7 +671,7 @@ sub topic_update {
 	}
 	if ($newtopic ne $topic) {
 		$topic = $newtopic;
-		$irc->yield (topic => $channel => $topic );
+		$irc->yield (topic => $_ => $topic ) for @channels;
 	}
 }
 
