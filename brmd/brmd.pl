@@ -681,7 +681,7 @@ sub notify_update {
 	my $msg = "[$comp] update: \002$status\002";
 	$extra and $msg .= " $extra";
 	$manual and $msg .= " ($manual manual override by $nick)";
-	$irc->yield (privmsg => $channel => $msg );
+	$irc->yield (privmsg => $_ => $msg ) for @channels;
 	topic_update($irc);
 }
 
@@ -689,14 +689,14 @@ sub notify_door_unauth {
 	my ($sender) = $_[SENDER];
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] \002unauthorized access\002 denied!";
-	$irc->yield (privmsg => $channel => $msg );
+	$irc->yield (privmsg => $_ => $msg ) for @channels;
 }
 
 sub notify_door_unlocked {
 	my ($sender) = @_[SENDER, ARG0];
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] unlocked";
-	$irc->yield (privmsg => $channel => $msg );
+	$irc->yield (privmsg => $_ => $msg ) for @channels;
 }
 
 sub notify_door_open {
@@ -705,7 +705,7 @@ sub notify_door_open {
 
 	my $irc = $_[HEAP]->{irc};
 	my $msg = "[door] $newstate \002(alert: closed brmlab, door opened, not unlocked)";
-	$irc->yield (privmsg => $channel => $msg );
+	$irc->yield (privmsg => $_ => $msg ) for @channels;
 }
 
 1;
