@@ -855,7 +855,7 @@ sub _start {
 	$_[KERNEL]->alias_set("$_[OBJECT]");
 
 	$_[HEAP]->{serial} = POE::Wheel::ReadWrite->new(
-		Handle => serial_open($devasign),
+		Handle => \*STDERR, #serial_open($devasign),
 		# We want no transformation at all, duh.
 		Filter => POE::Filter::Block->new(
 			LengthCodec => [ sub {}, sub {1}, ],
