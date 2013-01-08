@@ -334,7 +334,7 @@ sub web_index {
 	my $sts = main::status_str();
 	my $str = main::streaming_str();
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
@@ -372,7 +372,7 @@ sub web_brmstatus_html {
 	my $bg = $status ? 'lightgreen' : '#DEE7EC';
 	my $st = $status ? 'OPEN' : 'CLOSED';
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
@@ -402,7 +402,7 @@ EOT
 sub web_brmstatus_js {
 	my ($request, $response) = @_;
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/javascript");
 	disable_caching($response);
@@ -420,7 +420,7 @@ sub web_brmstatus_txt {
 
 	my $st = main::status_str();
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/plain");
 	disable_caching($response);
@@ -438,7 +438,7 @@ sub web_brmstatus_png {
 	my $imgdata = <$img>;
 	close $img;
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "image/png");
 	disable_caching($response);
@@ -459,7 +459,7 @@ sub web_brmstatus_switch {
 		$poe_kernel->post($_, 'status_update', $newstatus, 'web', $nick);
 	}
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(302);
 	$response->header('Location' => 'brmstatus.html');
 
@@ -469,7 +469,7 @@ sub web_brmstatus_switch {
 sub web_alphasign_text {
 	my ($request, $response) = @_;
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
 	$response->push_header("Content-Type", "text/html");
 	disable_caching($response);
@@ -518,7 +518,7 @@ sub web_alphasign_set {
 		$beep and $poe_kernel->post($alphasign, 'beep');
 	}
 
-	$response->protocol("HTTP/1.1");
+	$response->protocol("HTTP/1.0");
 	$response->code(302);
 	$response->header('Location' => 'alphasign');
 
