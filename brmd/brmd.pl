@@ -279,6 +279,7 @@ sub new {
 			"/brmstatus.png" => \&web_brmstatus_png,
 			"/brmstatus.txt" => \&web_brmstatus_txt,
 			"/brmstatus-switch" => sub { $self->web_brmstatus_switch(@_) },
+			"/brmstatus.json" => \&web_brmstatus_json,
 			"/alphasign" => \&web_alphasign_text,
 			"/alphasign-set" => \&web_alphasign_set,
 			"/" => \&web_index
@@ -354,7 +355,7 @@ sub web_index {
 <h1>brmd web interface</h1>
 <p>Enjoy the view!</p>
 <ul>
-<li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
+<li><strong>brmstatus</strong> ($sts) <a href="brmstatus.html">status page</a> | <a href="brmstatus.js">javascript code</a> | <a href="brmstatus.json">SpaceAPI JSON</a> | <a href="brmstatus.txt">plaintext file</a> | <a href="brmstatus.png">picture</a></li>
 <li><strong>brmvideo</strong> ($str) $r_link</li>
 <li><strong>alphasign</strong> ($astext) $a_link</li>
 </ul>
@@ -409,6 +410,46 @@ sub web_brmstatus_js {
 
 	$response->content(<<EOT
 function brmstatus() { return ($status); }
+EOT
+	);
+
+	return RC_OK;
+}
+
+sub web_brmstatus_json {
+	my ($request, $response) = @_;
+
+	$response->protocol("HTTP/1.0");
+	$response->code(RC_OK);
+	$response->push_header("Content-Type", "application/json");
+	$response->push_header("Access-Control-Allow-Origin", "*");
+	disable_caching($response);
+
+	$response->content(<<EOT
+{
+  "api":"0.12",
+  "space":"brmlab",
+  "url":"http://brmlab.cz",
+  "icon":{
+    "open":"https://brmlab.cz/status-open-icon.png",
+    "closed":"https://brmlab.cz/status-closed-icon.png"
+  },
+  "address":"Bubenska 1477/1, 170 00 Praha 7, Czech republic",
+  "contact":{
+    "phone":"+420608801582",
+    "twitter":"\@brmlab",
+    "ml":"brmlab\@brmlab.cz"
+  },
+  "irc":"irc://freenode/#brmlab",
+  "logo":"https://brmlab.cz/favicon.ico",
+  "open":${\($status ? 'true' : 'false')},
+  "lastchange":$laststchange,
+  "feeds":[
+    {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"},
+  ],
+  "lat":37.0625,
+  "lon":-95.67706
+}
 EOT
 	);
 
