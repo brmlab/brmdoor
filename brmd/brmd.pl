@@ -441,7 +441,7 @@ sub web_brmstatus_json {
     "ml":"brmlab\@brmlab.cz",
     "irc":"irc://freenode/#brmlab"
   },
-  "logo":"https://brmlab.cz/favicon.ico",
+  "logo":"https://brmlab.cz/_media/brmlab.png?w=256",
   "open":${\($status ? 'true' : 'false')},
   "lastchange":$laststchange,
   "feeds":[
