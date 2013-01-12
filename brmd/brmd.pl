@@ -438,9 +438,9 @@ sub web_brmstatus_json {
   "contact":{
     "phone":"+420608801582",
     "twitter":"\@brmlab",
-    "ml":"brmlab\@brmlab.cz"
+    "ml":"brmlab\@brmlab.cz",
+    "irc":"irc://freenode/#brmlab"
   },
-  "irc":"irc://freenode/#brmlab",
   "logo":"https://brmlab.cz/favicon.ico",
   "open":${\($status ? 'true' : 'false')},
   "lastchange":$laststchange,
