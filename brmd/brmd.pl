@@ -438,6 +438,7 @@ sub web_brmstatus_json {
   "contact":{
     "phone":"+420608801582",
     "twitter":"\@brmlab",
+    "facebook":"brmlab",
     "ml":"brmlab\@brmlab.cz",
     "irc":"irc://freenode/#brmlab"
   },
