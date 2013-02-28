@@ -427,29 +427,49 @@ sub web_brmstatus_json {
 
 	$response->content(<<EOT
 {
-  "api":"0.12",
-  "space":"brmlab",
-  "url":"http://brmlab.cz",
-  "icon":{
-    "open":"https://brmlab.cz/status-open-icon.png",
-    "closed":"https://brmlab.cz/status-closed-icon.png"
-  },
-  "address":"Bubenska 1477/1, 170 00 Praha 7, Czech republic",
-  "contact":{
-    "phone":"+420608801582",
-    "twitter":"\@brmlab",
-    "facebook":"brmlab",
-    "ml":"brmlab\@brmlab.cz",
-    "irc":"irc://freenode/#brmlab"
-  },
-  "logo":"https://brmlab.cz/_media/brmlab.png?w=256",
-  "open":${\($status ? 'true' : 'false')},
-  "lastchange":$laststchange,
-  "feeds":[
-    {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"},
-  ],
-  "lat":37.0625,
-  "lon":-95.67706
+    "api": "0.13",
+    "space": "brmlab",
+    "logo": "http://brmlab.cz/_media/brmlab.png?w=256",
+    "url": "http://brmlab.cz",
+    "location": {
+        "lat": 50.0984614,
+        "lon": 14.4369158,
+        "address": "Bubenska 1477/1, 170 00 Praha 7, Czech republic"
+    },
+    "address": "Bubenska 1477/1, 170 00 Praha 7, Czech republic",
+    "stream": {
+        "mpeg": "http://brmlab.cz/stream.flv"
+    },
+    "open":${\($status ? 'true' : 'false')},
+    "lastchange":$laststchange,
+    "status": {
+        "open":${\($status ? 'true' : 'false')},
+        "lastchange":$laststchange,
+        "message": "open",
+        "icon": {
+            "open": "https://brmlab.cz/status-open-icon.png",
+            "closed": "https://brmlab.cz/status-closed-icon.png"
+        }
+    },
+    "icon": {
+        "open": "https://brmlab.cz/status-open-icon.png",
+        "closed": "https://brmlab.cz/status-closed-icon.png"
+    },
+    "contact": {
+        "phone": "+420608801582",
+        "twitter": "\@brmlab",
+        "ml": "brmlab\@brmlab.cz",
+        "issue-mail": "rada\@brmlab.cz",
+        "irc": "irc://freenode/#brmlab",
+        "facebook": "brmlab"
+    },
+    "issue-report-channels": [
+        "issue-mail"
+    ],
+    "irc": "irc://freenode/#brmlab",
+    "feeds": [
+         { "name": "blog", "type": "application/rss+xml", "url": "http://soup.brmlab.cz/rss" }
+    ]
 }
 EOT
 	);
