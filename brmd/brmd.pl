@@ -442,7 +442,7 @@ sub web_brmstatus_json {
     "ml":"brmlab\@brmlab.cz",
     "irc":"irc://freenode/#brmlab"
   },
-  "logo":"https://brmlab.cz/_media/brmlab.png?w=256",
+  "logo":"https://brmlab.cz/_media/brmlab.png",
   "open":${\($status ? 'true' : 'false')},
   "lastchange":$laststchange,
   "feeds":[
