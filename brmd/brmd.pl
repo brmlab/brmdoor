@@ -448,8 +448,8 @@ sub web_brmstatus_json {
   "feeds":[
     {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"},
   ],
-  "lat":37.0625,
-  "lon":-95.67706
+  "lat": 50.0984614,
+  "lon": 14.4369158
 }
 EOT
 	);
