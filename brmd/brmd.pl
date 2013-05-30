@@ -446,7 +446,7 @@ sub web_brmstatus_json {
   "open":${\($status ? 'true' : 'false')},
   "lastchange":$laststchange,
   "feeds":[
-    {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"},
+    {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"}
   ],
   "lat": 50.0984614,
   "lon": 14.4369158
