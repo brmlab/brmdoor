@@ -461,7 +461,8 @@ sub web_brmstatus_json {
     "ml": "brmlab\@brmlab.cz",
     "issue-mail": "rada\@brmlab.cz",
     "irc": "irc://freenode/#brmlab",
-    "facebook": "brmlab"
+    "facebook": "brmlab",
+    "foursquare": "4cbdc77cc7228cfa25052cce"
   },
   "issue-report-channels": [
     "issue-mail"
