@@ -2,7 +2,7 @@
 
 #define MUSIC 1
 
-#include "NewSoftSerial.h"
+#include "SoftwareSerial.h"
 
 // pins
 const int magnetPin = 10;
@@ -32,7 +32,7 @@ struct ACLdata {
 #define comSerial Serial
 
 // rfidSerial for communication with the RFID reader
-NewSoftSerial rfidSerial(rfidTx, rfidRx);
+SoftwareSerial rfidSerial(rfidTx, rfidRx);
 
 #if MUSIC
 
