@@ -1,0 +1,12 @@
+# install Debian dependecies
+aptitude install git libpoe-perl libtest-xml-simple-perl libdevice-serialport-perl libpoe-component-server-http-perl libpoe-component-irc-perl liblogger-syslog-perl arduino
+
+# WolframAlpha perl module not packaged
+cpan> install WWW::WolframAlpha
+
+# having 'Out of memory' error during WWW::WolframAlpha
+# install can be solved like this:
+dd bs=1M count=256 if=/dev/zero of=./swapfile
+mkswap ./swapfile       
+swapon ./swapfile       
+
