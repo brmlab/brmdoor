@@ -1,0 +1,37 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          brmdoor
+# Required-Start:    $local_fs $all
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Start brmdoor
+# Description:       start brmdoor screen
+### END INIT INFO
+
+NAME=brmdoor
+PIDFILE=/var/run/$NAME.pid
+
+case "$1" in
+  start)
+        logger poustim brmdoor rc skript
+        #sudo -u brmdoor /usr/bin/screen -dmS brmd -c /home/brmdoor/.screenrc-brmd
+        start-stop-daemon --start -v -b  --pidfile $PIDFILE -x /bin/su \
+           -m --chdir /home/brmdoor -- - brmdoor \
+           -c " /usr/bin/screen -dmS brmd -c /home/brmdoor/.screenrc-brmd" \
+                || return 2
+
+        #/bin/su - brmdoor -c 'cd /home/brmdoor; /usr/bin/screen -dmS brmd -c /home/brmdoor/.screenrc-brmd'
+        ;;
+  stop|restart|force-reload)
+        # No-op
+        ;;
+  status)
+        # No-op
+        ;;
+  *)
+        echo "Usage: $NAME {start|stop|restart|force-reload}" >&2
+        exit 3
+        ;;
+esac
+
