@@ -2,8 +2,7 @@
 
 #define MUSIC 1
 
-#include "SoftwareSerial.h"
-
+#include <SoftwareSerial.h>
 // pins
 const int magnetPin = 10;
 const int soundPin = 9; /* piezo in series with 100R */
@@ -108,10 +107,10 @@ void readCard()
   byte NoCardResponse[] = { 0xAA, 0x00, 0x02, 0x01, 0x83, 0x80, 0xBB };
   byte buf[16];
   int i;
-
+  rfidSerial.listen();
   // write query to serial
   for (i = 0; i < 8; i++)
-    rfidSerial.print(RequestCardStatus[i]);
+    rfidSerial.write((uint8_t)RequestCardStatus[i]);
   // wait for the result, while reblinking
   delay(100);
   digitalWrite(statusLed, statusState);
@@ -125,7 +124,6 @@ void readCard()
     }
     ++i;
   }
-
   // no card is detected
   if (!memcmp(buf, NoCardResponse, 7)) {
     comSerial.write("NOCARD\n");
@@ -188,8 +186,8 @@ void setup()
   digitalWrite(statusBtn, HIGH);
   pinMode(videoBtn, INPUT);
   digitalWrite(videoBtn, HIGH);
-  rfidSerial.begin(9600);
   comSerial.begin(9600);
+  rfidSerial.begin(9600);
 }
 
 void loop()
