@@ -5,6 +5,6 @@ ARDUINO_PORT = /dev/ttyUSB0
 
 TARGET       = brmdoor
 
-ARDUINO_LIBS = AltSoftSerial
+ARDUINO_LIBS = SoftwareSerial
 
 include /usr/share/arduino/Arduino.mk
