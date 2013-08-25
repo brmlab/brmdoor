@@ -7,13 +7,14 @@ use strict;
 use warnings;
 use POE;
 use WWW::WolframAlpha;
+use Image::Magick;
 
 our @channels = ("#brmlab", "#brmstatus");
 our $streamurl = "http://brmlab.cz/stream";
 our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
 our ($status, $streaming, $dooropen, $topic) = (0, 0, 0, 'BRMLAB OPEN');
-our ($laststchange, $lastunlock) = (0, 0);
+our ($laststchange, $lastunlock) = (time, 0);
 our $stmanual = 0;
 
 my $irc = brmd::IRC->new();
@@ -475,10 +476,24 @@ sub web_brmstatus_txt {
 sub web_brmstatus_png {
 	my ($request, $response) = @_;
 
-	open my $img, ($status ? "status-open.png" : "status-closed.png");
-	local $/;
-	my $imgdata = <$img>;
-	close $img;
+	#open my $img, ($status ? "status-open.png" : "status-closed.png");
+	#local $/;
+	#my $imgdata = <$img>;
+	#close $img;
+
+	my $image = new Image::Magick;
+	$image->Read($status ? "status-open.png" : "status-closed.png");
+
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($laststchange);
+
+	$mon += 1;
+	$year -= 100;
+
+	my $str = sprintf("Since %02d-%02s-%02d %02s:%02d", $mday,$mon,$year,$hour,$min);
+	$image->Annotate( text=>$str, font=>'arial.ttf', fill=>'blue', pointsize=>'9', gravity=>'South');
+
+	$image->Set(magick=>'png');
+	my $imgdata = $image->ImageToBlob();
 
 	$response->protocol("HTTP/1.0");
 	$response->code(RC_OK);
