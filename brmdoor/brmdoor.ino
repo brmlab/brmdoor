@@ -26,7 +26,7 @@ const int PN532_MISO  = A0;
 
 // Set to true if you want to have correct UID printed in hex after CARD
 // message into UART (case when card is known).
-bool printFullUID = false;
+bool printFullUID = true;
 
 // Max retries to read card before timeout, 200 is around 1 second, 0xFF means
 // wait forever (constitutes blocking read).
@@ -287,6 +287,7 @@ void setup()
   digitalWrite(videoBtn, HIGH);
   comSerial.begin(9600);
 
+  nfc.begin();
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (! versiondata) {
     comSerial.write("CARD READER BROKEN\n");
