@@ -11,7 +11,7 @@ use Image::Magick;
 
 our @channels = ("#brmlab", "#brmstatus");
 our $streamurl = "http://brmlab.cz/stream";
-our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A700e1qB-if00-port0";
+our $devdoor = $ARGV[0]; $devdoor ||= "/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A70078Q1-if00-port0";
 our $devasign = $ARGV[1]; $devasign ||= "/dev/serial/by-id/usb-1a86_USB2.0-Serial-if00-port0";
 our ($status, $streaming, $dooropen, $topic) = (0, 0, 0, 'BRMLAB OPEN');
 our ($laststchange, $lastunlock) = (time, 0);
