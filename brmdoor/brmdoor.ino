@@ -190,6 +190,10 @@ int retardedACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataBr
 void serialWriteUIDHex(const uint8_t *uid, uint8_t length)
 {
     for (int i=0; i<length; i++) {
+        // why the fuck doesn't it have printf by default?
+        if (uid[i] < 0x10) {
+            comSerial.print("0");
+        }
         comSerial.print(uid[i], HEX);
     }
 }
