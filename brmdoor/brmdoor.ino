@@ -61,7 +61,7 @@ int videoState = 0, videoStateOverride = 0;
  */
 typedef struct ACLdataBroken {
     byte cardId[7];
-    char *nick;
+    const char *nick;
 } ACLRecordBroken;
 
 /*! 
@@ -77,8 +77,8 @@ ACLRecordBroken ACL[] = {
 /*! Structure for correct card UIDs */
 typedef struct ACLdataProper {
     uint8_t uidLength;
-    const uint8_t *uid;
-    char *nick;
+    uint8_t uid[10];
+    const char *nick;
 } ACLRecordProper;
 
 /*! 
@@ -96,7 +96,7 @@ ACLRecordProper ACLproper[] = {
  * Format of each array item is { UID_length, { UID_bytes }, nickname }
  */
 #include "cardids_proper.h"
- { 0, {0x00,}, "terminator, don't delete this element!" }
+ { 0, {0x00}, "terminator, don't delete this element!" }
 };
 
 // Let's hope aliasing won't break this.
@@ -230,7 +230,7 @@ int properACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataProp
     for(int i=0; ; i++) {
         const ACLRecordProper& acl = acls[i];
 
-        if (acls.uidLength == 0) {
+        if (acl.uidLength == 0) {
             break; // reached terminator, no more elements
         }
 
@@ -309,9 +309,9 @@ bool readCardPN532()
         return false;
     }
 
-    // OK we got some known card
+    // OK we got some known card, print its nick from respective ACL array
     comSerial.write("CARD ");
-    comSerial.write(ACL[aclIdx].nick);
+    comSerial.write(proper ? ACLproper[aclIdx].nick : ACL[aclIdx].nick);
 
     if (printFullUID) {
         comSerial.write(" ");
