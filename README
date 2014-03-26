@@ -10,3 +10,40 @@ Project webpage: http://brmlab.cz/project/brmdoor
 
 Note for PN532 version: if you want brmdoor to add card UID after "CARD"
 message (not just nick), set printFullUID to true in brmdoor/brmdoor.ino.
+
+
+==== Adding new UIDs to the database ====
+
+There are two lists - the new proper and the old deperecated with truncated UIDs.
+When adding, the new list is better place.
+
+The new proper list is searched for UIDs first.
+
+===== Using the new proper list - recommended =====
+
+Edit the cardids_proper.h file and add your UID and nick to a new line, which
+will become part of the ACLproper array. E.g. to add UID 04c24ce9ad2780 that is
+7 bytes long and adding nick "voyeur1", add line:
+
+  { 7, {0x04, 0xc2  0x4c, 0xe9, 0xad, 0x27, 0x80}, "voyeur1" },
+
+
+===== Using the old broken truncated list - not recommended =====
+
+Edit the cardids.h file. If the new card UID is 4 bytes long, e.g. 35b018d4,
+compute BCC, which is xor of these four bytes (0x49 in this case). Then add
+
+  { {0x00, 0x00, 0x35, 0xb0, 0x18, 0xd4, 0x49}, "mifare_classic_1" },
+
+The first two bytes are magic bytes that originate in the old reader, just use
+two zero bytes as above. The last byte is BCC we computed before. But you can
+use zero, the software doesn't need it.
+
+If the card UID is longer than 4 bytes (7 or 10 bytes), e.g. 04c24ce9ad2780,
+discard last four bytes of the UID and prepend 0x88. Use this "newly" created
+UID as if the card had only 4 byte UID, just like above.
+
+  { {0x00, 0x00, 0x88, 0x04, 0xc2, 0x4c, 0x02}, "truncated_voyeur1" },
+
+The old reader didn't support ISO14443 SELECT cascade 2 and 3. Hence the broken
+UIDs.
