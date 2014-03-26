@@ -28,6 +28,10 @@ const int PN532_MISO  = A0;
 // message into UART (case when card is known).
 bool printFullUID = true;
 
+// If set to true, will add string "proper" after the CARD message to signify
+// that the UID was found in the proper ACL list.
+bool printProper = true;
+
 // Max retries to read card before timeout, 200 is around 1 second, 0xFF means
 // wait forever (constitutes blocking read).
 uint8_t pn532MaxRetries = 200;
@@ -68,6 +72,31 @@ ACLRecordBroken ACL[] = {
  * { {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE}, "username" },
  */
 #include "cardids.h"
+};
+
+/*! Structure for correct card UIDs */
+typedef struct ACLdataProper {
+    uint8_t uidLength;
+    const uint8_t *uid;
+    char *nick;
+} ACLRecordProper;
+
+/*! 
+ * List of ACLs with proper full card's UID, included from another file.
+ *
+ * Keep the last element of array having uidLength of 0 last, it's a
+ * terminator (so that we don't have to do sizeof arithmetic and guesstimating
+ * whether aliasing will break it or not).
+ */
+ACLRecordProper ACLproper[] = {
+/* The following include file contains lines like
+ * { 4, {0x35, 0xb0, 0x18, 0xd4}, "mifare_1" },
+ * { 7, {0x04, 0xc2  0x4c, 0xe9, 0xad, 0x27, 0x80}, "ultralight_c" },
+ *
+ * Format of each array item is { UID_length, { UID_bytes }, nickname }
+ */
+#include "cardids_proper.h"
+ { 0, {0x00,}, "terminator, don't delete this element!" }
 };
 
 // Let's hope aliasing won't break this.
@@ -186,6 +215,38 @@ int retardedACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataBr
     return idx;
 }
 
+/*!
+ * Will search for given card UID in the proper ACL list.
+ * 
+ * @param uid UID of the card read
+ * @param length length of the UID in bytes
+ * @param acls list of proper ACLs (must contain the terminator as last element, see typedef above)
+ * @returns index into acls if found or -1 if not found
+ */
+int properACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataProper *acls)
+{
+    int idx = -1;
+
+    for(int i=0; ; i++) {
+        const ACLRecordProper& acl = acls[i];
+
+        if (acls.uidLength == 0) {
+            break; // reached terminator, no more elements
+        }
+
+        if (length != acl.uidLength) {
+            continue;
+        }
+
+        if (memcmp(uid, acl.uid, length) == 0) {
+            idx = i;
+            break;
+        }
+    }
+
+    return idx;
+}
+
 /*! Writes given UID encoded in hex to the serial specified. */
 void serialWriteUIDHex(const uint8_t *uid, uint8_t length)
 {
@@ -212,6 +273,7 @@ bool readCardPN532()
     uint8_t uid[10] = {0};
     uint8_t uidLength = 0;
     bool success;
+    bool proper = false; // true will indicate we found UID in new non-borken ACL list
     int aclIdx = -1;
 
     if (!pn532Working) {
@@ -228,8 +290,15 @@ bool readCardPN532()
         return false;
     }
 
-    // search for card UID in b0rken ACL database
-    aclIdx = retardedACLSearch(uid, uidLength, ACL, ACL_COUNT);
+    // try searching in proper ACL list first
+    aclIdx = properACLSearch(uid, uidLength, ACLproper);
+
+    if (aclIdx >= 0) {
+        proper = true;
+    } else {
+        // search for card UID in b0rken ACL database
+        aclIdx = retardedACLSearch(uid, uidLength, ACL, ACL_COUNT);
+    }
 
     if (aclIdx < 0) {
         // unknown card ID
@@ -247,6 +316,11 @@ bool readCardPN532()
     if (printFullUID) {
         comSerial.write(" ");
         serialWriteUIDHex(uid, uidLength);
+    }
+
+    // for debugging purposes - to know that we got the UID from proper ACL list
+    if (printProper && proper) {
+        comSerial.write(" proper");
     }
 
     comSerial.write("\n");
