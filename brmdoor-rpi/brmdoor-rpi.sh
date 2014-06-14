@@ -125,7 +125,7 @@ while true; do
 		if [ -z "$NAME" ]; then
 			log_message "UNKNOWN_CARD $CARD"
 			logger "[biodoor] unauthorized access denied for card $CARD"
-			irc_message "[biodoor] unauthorized request denied!"
+			irc_message "[biodoor] unauthorized access denied"
 			beep_invalid
 		else
 			log_message "DOOR_UNLOCKED $NAME $CARD"
@@ -145,13 +145,13 @@ while true; do
 	CURRENT_OPEN=`cat /sys/class/gpio/gpio${GPIO_SWITCH}/value`
 	if [ $CURRENT_OPEN -eq 1 -a $OPEN -eq 0 ]; then
 		log_message "STATUS_CLOSED"
-		irc_message "BRMBIOLAB is now *CLOSED*"
+		irc_message "[biostatus] update: CLOSED"
 		irc_status "CLOSED"
 		IGNORE_ALARM=$IGNORE_ALARM_SET
 	fi
 	if [ $CURRENT_OPEN -eq 0 -a $OPEN -eq 1 ]; then
 		log_message "STATUS_OPEN"
-		irc_message "BRMBIOLAB is now *OPEN*"
+		irc_message "[biostatus] update: OPEN"
 		irc_status "OPEN"
 
 	fi
@@ -162,7 +162,7 @@ while true; do
 
 	if [ $CURRENT_DOOR -eq 1 ] && [ $DOOR -eq 0 ] && [ $OPEN -eq 1 ] && [ $IGNORE_ALARM -eq 0 ]; then # doplnit timeout
 		log_message "DOOR_ALARM"
-		irc_message "[biodoor] alarm (door opened without unlock)!!!"
+		irc_message "[biodoor] alarm! (status closed, door opened, not unlocked)"
 
 		beep_alarm &
 	fi
