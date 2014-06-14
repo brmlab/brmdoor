@@ -1,0 +1,29 @@
+servers = (
+  {
+    address = "irc.freenode.net";
+    chatnet = "Freenode";
+    port = "6667";
+    autoconnect = "Yes";
+  }
+);
+chatnets = { Freenode = { type = "IRC"; }; };
+
+channels = (
+  { name = "#brmstatus"; chatnet = "Freenode"; autojoin = "Yes"; },
+  { name = "#brmlab"; chatnet = "Freenode"; autojoin = "Yes"; },
+  { name = "#brmbiolab"; chatnet = "Freenode"; autojoin = "Yes"; }
+);
+
+
+settings = {
+  core = {
+    real_name = "Brmbiolabi bot";
+    user_name = "brmbiobot";
+    nick = "brmbiobot";
+    hostname = "foo.bar";
+  };
+  "fe-text" = { actlist_sort = "refnum"; };
+};
+logs = { };
+hilights = ( );
+ignores = ( );
