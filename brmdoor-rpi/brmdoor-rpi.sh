@@ -117,14 +117,23 @@ done
 
 LOOP=0
 
+NFC_FAILED=1
+
 while true; do
 	CARD=`$NFC_BINARY`
-	if [ $? -ne 0 ]; then
-		
+	RET=$?
+	if [ $RET -ne 0 ] && [ $NFC_FAILED -eq 1 ] ; then
+		NFC_FAILED=0
 		log_message "NFC_FAILURE"
 		logger -p user.error "[biodoor] NFC failure"
 		irc_message "[biodoor] NFC error! Might be out of order!"
 		sleep 1s
+		continue
+	elif [ $RET -eq 0 ] && [ $NFC_FAILED -eq 0 ]; then
+		NFC_FAILED=1
+	        log_message "NFC_BACK"
+                logger -p user.error "[biodoor] NFC back"
+                irc_message "[biodoor] NFC communication is back!"
 	fi
 
 	if [ $IGNORE_ALARM -gt 0 ]; then
