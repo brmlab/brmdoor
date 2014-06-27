@@ -40,7 +40,7 @@ clean_gpio() {
 
 
 beep_invalid() {
-	for i in `seq 1 5`; do
+	for i in `seq 1 2`; do
 		echo 1 > /sys/class/gpio/gpio${GPIO_BEEP}/value
 		sleep 0.05s
 		echo 0 > /sys/class/gpio/gpio${GPIO_BEEP}/value
@@ -48,8 +48,18 @@ beep_invalid() {
 	done
 }
 
+beep_unlocked() {
+	for i in `seq 1 3`; do
+		echo 1 > /sys/class/gpio/gpio${GPIO_BEEP}/value
+		sleep 0.05s
+		echo 0 > /sys/class/gpio/gpio${GPIO_BEEP}/value
+		sleep 0.05s
+	done
+}
+
+
 beep_alarm() {
-	for i in `seq 1 5`; do
+	for i in `seq 1 10`; do
 		echo 1 > /sys/class/gpio/gpio${GPIO_BEEP}/value
 		sleep 0.5s
 		echo 0 > /sys/class/gpio/gpio${GPIO_BEEP}/value
@@ -73,6 +83,7 @@ irc_status() {
 		return
 	fi
 	echo "TINFO" > "$IRSSIFIFO"
+	sleep 5s
 	for chan in ${IRCCHANS[*]}; do
 		T=`cat "${IRSSITOPICS}/${chan}"`
 		NT=`echo "$T"|sed "s/BRMBIOLAB OPEN\|BRMBIOLAB CLOSED/BRMBIOLAB $1/"`
@@ -113,7 +124,7 @@ while true; do
 		log_message "NFC_FAILURE"
 		logger -p user.error "[biodoor] NFC failure"
 		irc_message "[biodoor] NFC error! Might be out of order!"
-		sleep 15s
+		sleep 1s
 	fi
 
 	if [ $IGNORE_ALARM -gt 0 ]; then
@@ -123,20 +134,18 @@ while true; do
 	if [ -n "$CARD" ]; then # we have a card
 		NAME=`grep -i "^[0-9a-zA-Z_-]* ${CARD}$" "$ALLOWED_LIST"| cut -d ' ' -f 1`
 		if [ -z "$NAME" ]; then
-			log_message "UNKNOWN_CARD $CARD"
-			logger "[biodoor] unauthorized access denied for card $CARD"
-			irc_message "[biodoor] unauthorized access denied"
+			log_message "UNKNOWN_CARD $CARD" &
+			logger "[biodoor] unauthorized access denied for card $CARD" &
+			irc_message "[biodoor] unauthorized access denied" &
 			beep_invalid
 		else
-			log_message "DOOR_UNLOCKED $NAME $CARD"
-			logger "[biodoor] unlocked by $NAME $CARD"
-			irc_message "[biodoor] door unlocked"
+			log_message "DOOR_UNLOCKED $NAME $CARD" &
+			logger "[biodoor] unlocked by $NAME $CARD" &
+			irc_message "[biodoor] door unlocked" &
 			echo 1 > /sys/class/gpio/gpio${GPIO_LOCK}/value
-			echo 1 > /sys/class/gpio/gpio${GPIO_BEEP}/value
-
+			beep_unlocked &
 			sleep $LOCK_TIMEOUT
 			echo 0 > /sys/class/gpio/gpio${GPIO_LOCK}/value
-			echo 0 > /sys/class/gpio/gpio${GPIO_BEEP}/value
 			IGNORE_ALARM=$IGNORE_ALARM_SET
 		fi
 	fi
@@ -144,15 +153,15 @@ while true; do
 	# check open/closed status
 	CURRENT_OPEN=`cat /sys/class/gpio/gpio${GPIO_SWITCH}/value`
 	if [ $CURRENT_OPEN -eq 1 -a $OPEN -eq 0 ]; then
-		log_message "STATUS_CLOSED"
-		irc_message "[biostatus] update: CLOSED"
-		irc_status "CLOSED"
+		log_message "STATUS_CLOSED" &
+		irc_message "[biostatus] update: CLOSED" &
+		irc_status "CLOSED" &
 		IGNORE_ALARM=$IGNORE_ALARM_SET
 	fi
 	if [ $CURRENT_OPEN -eq 0 -a $OPEN -eq 1 ]; then
-		log_message "STATUS_OPEN"
-		irc_message "[biostatus] update: OPEN"
-		irc_status "OPEN"
+		log_message "STATUS_OPEN" &
+		irc_message "[biostatus] update: OPEN" &
+		irc_status "OPEN" &
 
 	fi
 
@@ -160,11 +169,10 @@ while true; do
 
 	OPEN=$CURRENT_OPEN
 
-	if [ $CURRENT_DOOR -eq 1 ] && [ $DOOR -eq 0 ] && [ $OPEN -eq 1 ] && [ $IGNORE_ALARM -eq 0 ]; then # doplnit timeout
-		log_message "DOOR_ALARM"
-		irc_message "[biodoor] alarm! (status closed, door opened, not unlocked)"
-
-		beep_alarm &
+	if [ $CURRENT_DOOR -eq 1 ] && [ $DOOR -eq 0 ] && [ $OPEN -eq 1 ] && [ $IGNORE_ALARM -eq 0 ]; then
+		log_message "DOOR_ALARM" &
+		irc_message "[biodoor] alarm! (status closed, door opened, not unlocked)" &
+		beep_alarm
 	fi
 
 	DOOR=$CURRENT_DOOR
@@ -179,7 +187,7 @@ while true; do
 		fi
 	fi
 
-	if [ $LOOP -gt 5 ]; then
+	if [ $LOOP -gt 10 ]; then
 		LOOP=0
 		if [ $OPEN -eq 1 ]; then
 			echo 1 > /sys/class/gpio/gpio${GPIO_LED}/value
