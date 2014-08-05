@@ -305,6 +305,7 @@ bool readCardPN532()
         comSerial.write("CARD UNKNOWN ");
         serialWriteUIDHex(uid, uidLength);
         comSerial.write("\n");
+        playMelodyNak();
         delay(750);
         return false;
     }
