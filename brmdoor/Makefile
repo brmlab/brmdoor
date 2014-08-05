@@ -5,6 +5,6 @@ ARDUINO_PORT = /dev/ttyUSB0
 
 TARGET       = brmdoor
 
-ARDUINO_LIBS = SoftwareSerial
+ARDUINO_LIBS = SoftwareSerial AdafruitPN532
 
 include /usr/share/arduino/Arduino.mk

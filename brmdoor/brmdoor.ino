@@ -3,6 +3,8 @@
 #define MUSIC 1
 
 #include <SoftwareSerial.h>
+#include <Adafruit_PN532.h>
+
 // pins
 const int magnetPin = 10;
 const int soundPin = 9; /* piezo in series with 100R */
@@ -14,24 +16,101 @@ const int doorLock = 4;
 const int rfidRx = 3;
 const int rfidTx = 2;
 
+// Pins where Adafruit PN532 shield is connected.
+// Note that these are the analog pins used in digital mode - no other pins
+// were available.
+const int PN532_SCK   = A3;
+const int PN532_MOSI  = A2;
+const int PN532_SS    = A1;
+const int PN532_MISO  = A0;
+
+// Set to true if you want to have correct UID printed in hex after CARD
+// message into UART (case when card is known).
+bool printFullUID = true;
+
+// If set to true, will add string "proper" after the CARD message to signify
+// that the UID was found in the proper ACL list.
+bool printProper = true;
+
+// Max retries to read card before timeout, 200 is around 1 second, 0xFF means
+// wait forever (constitutes blocking read).
+uint8_t pn532MaxRetries = 200;
+bool pn532Working; //whether we have connected and working chip
+
 int statusState = 0, statusStateOverride = 0;
 int videoState = 0, videoStateOverride = 0;
 
-// cardId is the same as you can see in CARD telnet message
-struct ACLdata {
-  byte cardId[7];
-  char *nick;
-} ACL[] = {
-// the following include file contains lines like
-// { {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE}, "username" },
+/*!
+ * The cardId is the same as you can see in CARD telnet message
+ *
+ * It's called broken, because we had broken reader that couldn't read 7-byte IDs.
+ * I.e. the old reader could only use SELECT cascade 1, which begins with 0x88
+ * cascading tag, thus we have only 3 bytes from 7-byte UIDs.
+ *
+ * So if we get a 7-byte ID, we must do "retarded search" for the 3-byte part.
+ * If an ID in this struct contains 0x88 as third byte (index 2), it means it's
+ * a card with 7 or 10 byte UID and begins with a cascading tag 0x88.
+ * 
+ * Currently the bytes seem to be:
+ *
+ * case of 4-byte UID:  0x00, 0x00, UID1, UID2, UID3, UID4, BCC
+ * case of 7-byte UID:  0xFF, 0x00, 0x88, UID1, UID2, UID3, BCC
+ * case of 10-byte UID: ??? I don't think I actually saw a real card with
+ *                      10-byte UID, but it's in the NXP specs
+ *
+ */
+typedef struct ACLdataBroken {
+    byte cardId[7];
+    const char *nick;
+} ACLRecordBroken;
+
+/*! 
+ * List of ACLs included from a static array, see ACLRecordBroken for details.
+ */
+ACLRecordBroken ACL[] = {
+/* The following include file contains lines like
+ * { {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE}, "username" },
+ */
 #include "cardids.h"
 };
+
+/*! Structure for correct card UIDs */
+typedef struct ACLdataProper {
+    uint8_t uidLength;
+    uint8_t uid[10];
+    const char *nick;
+} ACLRecordProper;
+
+/*! 
+ * List of ACLs with proper full card's UID, included from another file.
+ *
+ * Keep the last element of array having uidLength of 0 last, it's a
+ * terminator (so that we don't have to do sizeof arithmetic and guesstimating
+ * whether aliasing will break it or not).
+ */
+ACLRecordProper ACLproper[] = {
+/* The following include file contains lines like
+ * { 4, {0x35, 0xb0, 0x18, 0xd4}, "mifare_1" },
+ * { 7, {0x04, 0xc2  0x4c, 0xe9, 0xad, 0x27, 0x80}, "ultralight_c" },
+ *
+ * Format of each array item is { UID_length, { UID_bytes }, nickname }
+ */
+#include "cardids_proper.h"
+ { 0, {0x00}, "terminator, don't delete this element!" }
+};
+
+// Let's hope aliasing won't break this.
+// OMG why not some proper structures?
+#define ACL_COUNT (sizeof(ACL)/sizeof(ACLRecordBroken))
+
+// ISO14443 cascading tag
+#define CASCADING_TAG 0x88
 
 // comSerial for communication with the host
 #define comSerial Serial
 
-// rfidSerial for communication with the RFID reader
-SoftwareSerial rfidSerial(rfidTx, rfidRx);
+// PN532 chip instance
+Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 
 #if MUSIC
 
@@ -101,64 +180,163 @@ void openDoorForTime(int ms)
   digitalWrite(doorLock, LOW);
 }
 
-void readCard()
+/*!
+ * Will search for given card UID in the borken ACL list with truncated UIDs.
+ * 
+ * @param uid UID of the card read
+ * @param length length of the UID in bytes
+ * @param acls list of ACLs in the old b0rken form
+ * @param count of ACLs in the above array
+ * @returns index into acls if found or -1 if not found
+ */
+int retardedACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataBroken *acls, int aclCount)
 {
-  byte RequestCardStatus[] = { 0xAA, 0x00, 0x03, 0x25, 0x26, 0x00, 0x00, 0xBB };
-  byte NoCardResponse[] = { 0xAA, 0x00, 0x02, 0x01, 0x83, 0x80, 0xBB };
-  byte buf[16];
-  int i;
-  rfidSerial.listen();
-  // write query to serial
-  for (i = 0; i < 8; i++)
-    rfidSerial.write((uint8_t)RequestCardStatus[i]);
-  // wait for the result, while reblinking
+    int idx = -1;
+
+    for(int i=0; i<aclCount; i++) {
+        const ACLRecordBroken& acl = acls[i];
+
+        // Look for ISO14443 cascading tag 0x88 in third byte of the UID.
+        // If it's present, then the UID has been truncated - only 3 bytes
+        // are correct. Otherwise we got correct 4 byte UID.
+        if (acl.cardId[2] == CASCADING_TAG) { // truncated UID
+            if (memcmp(acl.cardId+3, uid, 3) == 0) {
+                idx = i;
+                break;
+            }
+        } else { // full 4-byte UID
+            if (memcmp(acl.cardId+2, uid, 4) == 0) {
+                idx = i;
+                break;
+            }
+        }
+    }
+
+    return idx;
+}
+
+/*!
+ * Will search for given card UID in the proper ACL list.
+ * 
+ * @param uid UID of the card read
+ * @param length length of the UID in bytes
+ * @param acls list of proper ACLs (must contain the terminator as last element, see typedef above)
+ * @returns index into acls if found or -1 if not found
+ */
+int properACLSearch(const uint8_t *uid, uint8_t length, const struct ACLdataProper *acls)
+{
+    int idx = -1;
+
+    for(int i=0; ; i++) {
+        const ACLRecordProper& acl = acls[i];
+
+        if (acl.uidLength == 0) {
+            break; // reached terminator, no more elements
+        }
+
+        if (length != acl.uidLength) {
+            continue;
+        }
+
+        if (memcmp(uid, acl.uid, length) == 0) {
+            idx = i;
+            break;
+        }
+    }
+
+    return idx;
+}
+
+/*! Writes given UID encoded in hex to the serial specified. */
+void serialWriteUIDHex(const uint8_t *uid, uint8_t length)
+{
+    for (int i=0; i<length; i++) {
+        // why the fuck doesn't it have printf by default?
+        if (uid[i] < 0x10) {
+            comSerial.print("0");
+        }
+        comSerial.print(uid[i], HEX);
+    }
+}
+
+/*! Returns true iff we could read a card's UID.
+ * That card UID is then looked up in the ACL array and response is sent
+ * via UART to controlling computer (Raspberry, etc).
+ *
+ * Opens door for 5 seconds if the UID matched something in ACL array.
+ *
+ * Note: PN532 can read multiple cards in its field, but this is not supported
+ * here (not necessary). The reader will pick one if there's more of them.
+ */
+bool readCardPN532()
+{
+    uint8_t uid[10] = {0};
+    uint8_t uidLength = 0;
+    bool success;
+    bool proper = false; // true will indicate we found UID in new non-borken ACL list
+    int aclIdx = -1;
+
+    if (!pn532Working) {
+        comSerial.write("NOCARD\n");
+        return false;
+    }
+
+    // read from PN532, change according to cardids, write result to comSerial
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+
+    if (!success) {
+        // no card in reader field
+        comSerial.write("NOCARD\n");
+        return false;
+    }
+
+    // try searching in proper ACL list first
+    aclIdx = properACLSearch(uid, uidLength, ACLproper);
+
+    if (aclIdx >= 0) {
+        proper = true;
+    } else {
+        // search for card UID in b0rken ACL database
+        aclIdx = retardedACLSearch(uid, uidLength, ACL, ACL_COUNT);
+    }
+
+    if (aclIdx < 0) {
+        // unknown card ID
+        comSerial.write("CARD UNKNOWN ");
+        serialWriteUIDHex(uid, uidLength);
+        comSerial.write("\n");
+        playMelodyNak();
+        delay(750);
+        return false;
+    }
+
+    // OK we got some known card, print its nick from respective ACL array
+    comSerial.write("CARD ");
+    comSerial.write(proper ? ACLproper[aclIdx].nick : ACL[aclIdx].nick);
+
+    if (printFullUID) {
+        comSerial.write(" ");
+        serialWriteUIDHex(uid, uidLength);
+    }
+
+    // for debugging purposes - to know that we got the UID from proper ACL list
+    if (printProper && proper) {
+        comSerial.write(" proper");
+    }
+
+    comSerial.write("\n");
+
+    openDoorForTime(5000);
+    
+    return true;
+}
+
+/*! Set status led according to status, delat a bit. */
+void statusUpdate()
+{
   delay(100);
   digitalWrite(statusLed, statusState);
   delay(150);
-
-  // read input from serial into the buffer
-  i = 0;
-  while (rfidSerial.available() > 0) {
-    if (i < sizeof(buf)) {
-      buf[i] = rfidSerial.read();
-    }
-    ++i;
-  }
-  // no card is detected
-  if (!memcmp(buf, NoCardResponse, 7)) {
-    comSerial.write("NOCARD\n");
-  }
-
-  // card detected - message has form AA0006xxxxxxxxxxxxxxBB where xxx... is the card ID
-  if (buf[0] == 0xAA && buf[1] == 0x00 && buf[2] == 0x06 && buf[10] == 0xBB) {
-    bool known = false;
-    // go through ACL
-    for (int i = 0; i < sizeof(ACL)/sizeof(ACL[0]); ++i) {
-      // if there is a match - print known card ...
-      if (!memcmp(ACL[i].cardId, buf+3, 7)) {
-        known = true;
-        comSerial.write("CARD ");
-        comSerial.write(ACL[i].nick);
-        comSerial.write("\n");
-        // ... and open door for 5s
-        openDoorForTime(5000);
-        break;
-      }
-    }
-    // card was not found in the ACL
-    if (!known) {
-      comSerial.write("CARD UNKNOWN ");
-      for (int i = 0; i < 7; ++i) {
-        if (buf[i+3] <= 0xF) comSerial.write("0");
-        comSerial.print(buf[i+3], HEX);
-      }
-      comSerial.write("\n");
-      playMelodyNak();
-    }
-  } else {
-    // make cycle interval 1s
-    delay(750);
-  }
 }
 
 void readSerial()
@@ -187,7 +365,17 @@ void setup()
   pinMode(videoBtn, INPUT);
   digitalWrite(videoBtn, HIGH);
   comSerial.begin(9600);
-  rfidSerial.begin(9600);
+
+  nfc.begin();
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata) {
+    comSerial.write("CARD READER BROKEN\n");
+    pn532Working = false;
+  } else {
+    nfc.SAMConfig();
+    nfc.setPassiveActivationRetries(pn532MaxRetries);
+    pn532Working = true;
+  }
 }
 
 void loop()
@@ -204,11 +392,16 @@ void loop()
   
   int doorOpen = digitalRead(magnetPin);
 
-  digitalWrite(statusLed, !statusState); // will be turned back in readCard()
+  digitalWrite(statusLed, !statusState);
   digitalWrite(videoLed, videoState);
+
   comSerial.print(statusState, DEC); comSerial.write(" ");
   comSerial.print(videoState, DEC); comSerial.write(" ");
   comSerial.print(doorOpen, DEC); comSerial.write(" ");
-  readCard();
+
+  statusUpdate();
+
+  readCardPN532();
   readSerial();
 }
+
