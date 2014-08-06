@@ -1,0 +1,5 @@
+  // Format of each array item is { UID_length, { UID_bytes }, nickname }
+  // See definition of struct ACLdataProper in brmdoor.ino
+  { 4, {0x35, 0xb0, 0x18, 0xd4}, "mifare_1_proper" },
+  { 7, {0x04, 0xc2, 0x4c, 0xe9, 0xad, 0x27, 0x80}, "ultralight_proper" }, //04c24ce9ad2780
+
