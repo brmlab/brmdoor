@@ -428,29 +428,51 @@ sub web_brmstatus_json {
 
 	$response->content(<<EOT
 {
-  "api":"0.12",
-  "space":"brmlab",
-  "url":"http://brmlab.cz",
-  "icon":{
-    "open":"https://brmlab.cz/status-open-icon.png",
-    "closed":"https://brmlab.cz/status-closed-icon.png"
-  },
-  "address":"Bubenska 1477/1, 170 00 Praha 7, Czech republic",
-  "contact":{
-    "phone":"+420608801582",
-    "twitter":"\@brmlab",
-    "facebook":"brmlab",
-    "ml":"brmlab\@brmlab.cz",
-    "irc":"irc://freenode/#brmlab"
-  },
-  "logo":"https://brmlab.cz/_media/brmlab.png",
-  "open":${\($status ? 'true' : 'false')},
-  "lastchange":$laststchange,
-  "feeds":[
-    {"name":"blog","type":"application/rss+xml","url":"https://soup.brmlab.cz/rss"}
-  ],
-  "lat": 50.0984614,
-  "lon": 14.4369158
+    "api": "0.13",
+    "space": "brmlab",
+    "logo": "https://brmlab.cz/_media/brmlab.png",
+    "url": "https://brmlab.cz",
+    "open": ${\($status ? 'true' : 'false')},
+    "location": {
+        "address": "brmlab o.s., Bubenska 1477/1, 170 00 Prague 7, Czech republic",
+        "lon": 14.4369158,
+        "lat": 50.0984614
+    },
+    "contact": {
+        "phone": "+420608801582",
+        "sip": "910114321\@sip.odorik.cz",
+        "irc": "irc://freenode/#brmlab",
+        "twitter": "\@brmlab",
+        "facebook": "brmlab",
+        "foursquare": "4cbdc77cc7228cfa25052cce",
+        "ml": "brmlab\@brmlab.cz",
+        "issue_mail": "cmFkYUBicm1sYWIuY3oK"
+    },
+    "issue_report_channels": [
+        "issue_mail"
+    ],
+    "state": {
+        "open": ${\($status ? 'true' : 'false')},
+        "lastchange": $laststchange,
+        "icon": {
+            "open": "https://brmlab.cz/status-open-icon.png",
+            "closed": "https://brmlab.cz/status-closed-icon.png"
+        }
+    },
+    "icon": {
+        "open": "https://brmlab.cz/status-open-icon.png",
+        "closed": "https://brmlab.cz/status-closed-icon.png"
+    },
+    "stream": {
+        "mp4": "http://brmlab.cz/stream.flv"
+    },
+    "projects": [
+        "https://brmlab.cz/project/start",
+        "https://github.com/brmlab"
+    ],
+    "cache": {
+        "schedule": "m.02"
+    }
 }
 EOT
 	);
