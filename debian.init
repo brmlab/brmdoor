@@ -23,11 +23,17 @@ case "$1" in
 
         #/bin/su - brmdoor -c 'cd /home/brmdoor; /usr/bin/screen -dmS brmd -c /home/brmdoor/.screenrc-brmd'
         ;;
-  stop|restart|force-reload)
-        # No-op
+  stop)
+        killall brmd.pl
+        ;;
+  restart|force-reload)
+        killall brmd.pl
+        $(readlink -f "$0") start
         ;;
   status)
         # No-op
+        # status_of_proc -p $PIDFILE '/usr/bin/perl ./brmd.pl' brmd.pl          
+        # could work but PIDFILE stores different (non-existent) pid
         ;;
   *)
         echo "Usage: $NAME {start|stop|restart|force-reload}" >&2
