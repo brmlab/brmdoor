@@ -430,7 +430,7 @@ sub web_brmstatus_json {
 {
     "api": "0.13",
     "space": "brmlab",
-    "logo": "https://brmlab.cz/_media/brmlab.png",
+    "logo": "https://status.brmlab.cz/_media/brmlab.png",
     "url": "https://brmlab.cz",
     "open": ${\($status ? 'true' : 'false')},
     "location": {
@@ -455,13 +455,13 @@ sub web_brmstatus_json {
         "open": ${\($status ? 'true' : 'false')},
         "lastchange": $laststchange,
         "icon": {
-            "open": "https://brmlab.cz/status-open-icon.png",
-            "closed": "https://brmlab.cz/status-closed-icon.png"
+            "open": "https://status.brmlab.cz/status-open-icon.png",
+            "closed": "https://status.brmlab.cz/status-closed-icon.png"
         }
     },
     "icon": {
-        "open": "https://brmlab.cz/status-open-icon.png",
-        "closed": "https://brmlab.cz/status-closed-icon.png"
+        "open": "https://status.brmlab.cz/status-open-icon.png",
+        "closed": "https://status.brmlab.cz/status-closed-icon.png"
     },
     "stream": {
         "mp4": "http://brmlab.cz/stream.flv"
