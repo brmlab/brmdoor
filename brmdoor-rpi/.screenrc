@@ -1,0 +1,5 @@
+autodetach on
+startup_message off
+ 
+screen -t irssi 0 irssi
+screen -t brmdoor 0 /home/brmdoor/brmdoor/brmdoor-rpi/brmdoor-rpi.sh
