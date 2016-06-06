@@ -1,0 +1,12 @@
+[Unit]
+Description=brmdoor
+ 
+[Service]
+Type=forking
+User=brmdoor
+ExecStart=/usr/bin/screen -L -d -m -S brmdoor
+ExecStop=/usr/bin/killall -w -s 2 brmdoor
+WorkingDirectory=/home/brmdoor
+ 
+[Install]
+WantedBy=multi-user.target
