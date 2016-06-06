@@ -1,6 +1,8 @@
 This is quick and dirty version of brmdoor that does not require Arduino, and runs only on Raspberry Pi.
 
 This version of brmdoor requires:
+- create user brmdoor, ~brmdoor/.screenrc
+- create /etc/systemd/system/brmdoor.service in case systemd is used to autostart brmdoor service
 - irssi configured according to ./irssi/config with loaded scripts from ./irssi/scripts
 - libnfc-compatible smartcard reader
 - libnfc installed
