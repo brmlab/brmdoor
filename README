@@ -3,7 +3,9 @@
 brmd/ - integration hub that collects data from various sources and provides
 unified reporting on IRC and web etc.
 install dependecies:
-  aptitude install git libimage-magick-perl liblogger-syslog-perl libdevice-serialport-perl libpoe-perl libtie-ixhash-perl screen libpoe-component-server-http-perl libexpat1-dev libxml-simple-perl libpoe-component-irc-perl arduino-mk
+  aptitude install git libimage-magick-perl liblogger-syslog-perl libdevice-serialport-perl\
+    libpoe-perl libtie-ixhash-perl screen libpoe-component-server-http-perl libexpat1-dev\
+    libxml-simple-perl libpoe-component-irc-perl arduino-mk
   cpan> install WWW::WolframAlpha
 
 brmdoor/ - Arduino software
