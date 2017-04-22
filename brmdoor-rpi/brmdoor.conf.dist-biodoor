@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# maglock GPIO pin
+GPIO_LOCK=24
+
+# status led GPIO pin
+GPIO_LED=22
+
+# buzzer GPIO pin
+GPIO_BEEP=23
+
+# status switch GPIO pin
+GPIO_SWITCH=18
+
+# magswitch GPIO pin (used as alarm trigger)
+GPIO_MAGSWITCH=17
+
+# path to nfc-getcard binary (from the brmdoor-pi repo)
+NFC_BINARY=/home/brmdoor/brmdoor/brmdoor-rpi/nfc-getcard
+
+# list of allowed card IDs with names
+# format:
+# user1 cafebabe
+# user2 b16b00b5
+
+ALLOWED_LIST=/home/brmdoor/allowed.list
+
+# fifo for remote irssi control
+IRSSIFIFO=/home/brmdoor/.irssi/remote-control
+
+# IRC chans where bot will idle
+IRCCHANS=("#brmlab" "#brmbiolab" "#brmstatus")
+
+# directory with stored IRC chans topics
+IRSSITOPICS=/home/brmdoor/.irssi/topics/
+
+# image of closed brmlab
+IMAGE_CLOSED=/home/brmdoor/brmdoor/brmd/status-closed.png
+
+# image of open brmlab
+IMAGE_OPEN=/home/brmdoor/brmdoor/brmd/status-open.png
+
+# destination image
+# do not set if you don't want image update on open/close
+# IMAGE_DST=/var/www/html/brmd/brmstatus.png
+
+# spaceAPI template
+# two tokens will be replaced: ##OPEN## with true/false if brmlab is open/closed and ##LASTCHANGE## with unix timestamp of last status change
+SPACEAPI_TPL=/home/brmdoor/brmdoor/brmdoor-rpi/brmstatus-template.json
+
+# SpaceAPI destination file, do not set if you don't want updates
+# SPACEAPI_DST=/var/www/html/brmd/brmstatus.json
+
+
+# identity used in logs and IRC messages, used in messages like: "[$IDENTITY] door unlocked"
+IDENTITY="brmbiodoor"
+
+# status identifier for logs and IRC, used in messages: "[${STATUS}] update: CLOSED"
+STATUS="biostatus"
+
+# room name in IRC topic
+ROOM="BRMBIOLAB"
