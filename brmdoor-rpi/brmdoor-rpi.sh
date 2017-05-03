@@ -158,7 +158,7 @@ while true; do
 	fi
 	
 	if [ -n "$CARD" ]; then # we have a card
-		NAME=`grep -i "^[0-9a-zA-Z_-]* ${CARD}$" "$ALLOWED_LIST"| cut -d ' ' -f 1`
+		NAME=`grep -i "^[0-9a-zA-Z_-\.]* ${CARD}$" "$ALLOWED_LIST"| cut -d ' ' -f 1`
 		if [ -z "$NAME" ]; then
 			log_message "UNKNOWN_CARD $CARD" &
 			logger "[$IDENTITY] unauthorized access denied for card $CARD" &
